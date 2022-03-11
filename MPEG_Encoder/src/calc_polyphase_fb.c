@@ -27,10 +27,6 @@ int calc_polyphase_fb(int16_t *input, int channels)
 
     for(i_12_32=0; i_12_32<BUFLEN; i_12_32++)
     {
-#if 0
-        inL=((float)(short)((table_Rcv[i_12_32] & 0xFFFF0000)>>16))/32767.0;    // get left channel
-        inR=((float)((short)(table_Rcv[i_12_32] & 0x0000FFFF)))/32767.0;        // get right channel
-#else
         // Read audio inputs
         if(channels == 1)
         {
@@ -47,7 +43,7 @@ int calc_polyphase_fb(int16_t *input, int channels)
         {
             return -1;
         }
-#endif
+
         inL = (inL+inR)/2;            // MS-Signal: M=(L+R)/2 S=(L-R)/2
         original[i_12_32]=(short)(inL*32767);
 #ifdef DEBUG

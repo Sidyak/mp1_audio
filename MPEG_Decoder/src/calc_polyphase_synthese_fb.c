@@ -414,11 +414,7 @@ void calc_polyphase_synthese_fb(void)
             cnt_out=0;
             count_12_synthese++;
         }
-#if 0
-        AIC23_data.channel[LEFT]  = (short)(INT_y*32767*32);
-        AIC23_data.channel[RIGHT] = (short)(INT_y*32767*32);
-        table_Xmt[i_12_32]=AIC23_data.both;
-#endif
+
         buffer[i_12_32] = (short)(INT_y*32/**32767*32*/);
     }
 }

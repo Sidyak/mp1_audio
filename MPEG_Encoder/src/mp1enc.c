@@ -26,16 +26,12 @@
 // and limitations under the License.
 //----------------------------------------------------------------------------
 
-#include "analysis_coeffs_float.h"  // filterbank coef
-#include "mpeg_tables.h"            // mpeg-1 tables
-#if 0
-#include "dsk6713.h"                // dsk support file
-#include "c6713dskinit.h"           // codec-DSK support file
-#endif
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include "analysis_coeffs_float.h"  // filterbank coef
+#include "mpeg_tables.h"            // mpeg-1 tables
 
 #if defined(_MSC_VER)
 #include <getopt.h>
@@ -60,25 +56,9 @@ extern "C" {
 #define RADIX 2      // radix 2 fft
 #define BANDSIZE 32  // 32 filter subbands
 
-#if 0
-/* c6713 timer, interrupt, gpio headder, edma, mcbsp */
-#include <csl.h>
-#include <csl_timer.h>
-#include <csl_irq.h>
-#include <csl_gpio.h>
-#include <csl_gpiohal.h>
-#include <csl_edma.h>
-#include <csl_mcbsp.h>
-#endif
-
 unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
 unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
 short original[BUFLEN]={0};        // Original samples
-//short direction=-1;                // EDMA Interrupt Rcv=0, Xmt=1, default=-1
-#if 0
-short input[BUFLEN];            // for defined input (simulation)
-int noise=0;                    // for adding noise to input
-#endif
 
 // FFT variables
 typedef struct Complex_tag {float re,im;}Complex;
@@ -232,8 +212,8 @@ float logLuT[1000] =
     0.6896410412, 0.6901426715, 0.6906440503, 0.6911451779, 0.6916460544, 0.6921466802, 0.6926470555
 };
 
-/***** Psychoacoustic Model variables *****/
-/* masker structure */
+// Psychoacoustic Model variables
+// masker structure
 struct Masker_List {
     short index[25];    // masker index
     float power[25];    // masker power level
@@ -241,23 +221,23 @@ struct Masker_List {
 struct Masker_List Ton_list;
 struct Masker_List nTon_list;
 float scf[BANDSIZE];        // scale factors
-float Ls[32]={0};            // sound pressure
+float Ls[32]={0};           // sound pressure
 float LTtm[25][102]={0};    // individual tonal mask threshold
 float LTnm[25][102]={0};    // individual non-tonal mask threshold
-float LTg[102]={0};            // gloabal mask threshold
-float LTmin[BANDSIZE]={0};    // min. mask threshold
+float LTg[102]={0};         // gloabal mask threshold
+float LTmin[BANDSIZE]={0};  // min. mask threshold
 float SMR[BANDSIZE]={0};    // signal-mask-ratio
 float MNR[BANDSIZE]={0};    // mask-noise-ratio
-short BSCF[BANDSIZE]={0};    // bit values for scale factors
-short BSPL[BANDSIZE]={0};     // bit values for subbands
+short BSCF[BANDSIZE]={0};   // bit values for scale factors
+short BSPL[BANDSIZE]={0};   // bit values for subbands
 short flag[NFFT/2]={0};        // flag if tonal or non-tonal masker
 short ton_ind=0;            // index
-short nton_ind=0;            // index
-short Ton_list_leng=0;        // length of tonals
-short compr_rate;                // bit-rate depending compression rate
-short cb;                        // callable number of bits at given bit-rate
-float adb;                        // currently available data bits
-short fft_done=0, fb_done=0;    // busy flags
+short nton_ind=0;           // index
+short Ton_list_leng=0;      // length of tonals
+short compr_rate;           // bit-rate depending compression rate
+short cb;                   // callable number of bits at given bit-rate
+float adb;                  // currently available data bits
+short fft_done=0, fb_done=0; // busy flags
 short first_FRAME=1;
 short BSCF_done=0;
 short band_cnt=0;
@@ -273,14 +253,14 @@ short *pFRAME1;
 short cnt_FRAME_fill=0;
 short index_nTon=0;
 
-/***** lookup table for mid-thread quantization *****/
+// lookup table for mid-thread quantization 
 float exp2LUT[14]=
 { 
     0.500000000000000, 0.250000000000000, 0.125000000000000, 0.062500000000000, 0.031250000000000, 0.015625000000000,  0.007812500000000,
     0.003906250000000, 0.001953125000000,  0.000976562500000, 0.000488281250000, 0.000244140625000, 0.000122070312500, 0.000061035156250
 };//{0.5, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256, 1/512, 1/1024, 1/2048, 1/4096, 1/8192, 1/16384};
 
-/***** Filterbank variables *****/
+// Filterbank variables
 short tw_sample;        // counter for 12 subband samples
 float delay[64]={0};
 float filt_outA[768]={0}, filt_outB[768]={0};    // 64 polyphases * 12 samples
@@ -296,56 +276,19 @@ float *pOut1;
 float *pOut2;
 short count_fb=0,count_fft=63, count_12=0;
 
-#if 0
-/***** AIC23 Codec variables *****/
-union {
-    Uint32 both;
-    short channel[2];
-} AIC23_data;
-
-/* toggle gpio pin for timing measurement */
-GPIO_Handle gpio_handle;
-short toggle=0;
-#endif
-
-/***** some control variables *****/
+// some control variables
 short ki=0;
 short cnt_=0;
 short cnt_samp=0;        // counter for 384 samples
 short count_INT=0, i_m=0, k_m=0;
 float inL=0,inR=0;       // current left and right sample
-#if 0
-/* EDMA channel handles */
-EDMA_Handle hEdmaXmt;
-EDMA_Handle hEdmaRcv;
-EDMA_Handle hEdmaReloadXmt;
-EDMA_Handle hEdmaReloadRcv;
-/* EDMA configuration */
-EDMA_Config gEdmaConfigXmt;
-EDMA_Config gEdmaConfigRcv;
-/* McBSP handles */
-MCBSP_Handle hMcbsp0;
-MCBSP_Handle hMcbsp1;
-/* McBSP configuration */
-MCBSP_Config Mymcbsp0;
-MCBSP_Config Mymcbsp1;
 
-/*  Function Prototypes */
-void initEdma0(void);
-#endif
 void init_table(void);
-#if 0
-void initMcbsp0();
-void initMcbsp1();
-#endif
 void swapPointer_fb(float** inp, float** wrk);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 int calc_polyphase_fb(int16_t *input, int channels);
 void calc_cos_mod(void);
-#if 1
 void cfftr2_dit( float *x, float *w, short N);
-#endif
-//void bitrev(kiss_fft_cpx *xs, short *index, int n);
 void bitrev(float *xs, short *index, int n);
 void digitrev_index(short *index, int n, int radix);
 void calc_mag_log(void);
@@ -361,27 +304,12 @@ void min_mask_th(void);
 void calc_SMR(void);
 void bit_alloc(int bitrate);
 void quantization_and_tx_frame(void);
-#if 0
-/************************************************ EDMA ISR **********************************************************************/
-interrupt void edma_complete_int (void) {
-    if (EDMA_CIPR & 1<<EDMA_CHA_REVT1)
-    {
-        EDMA_CIPR = (1<<EDMA_CHA_REVT1);    // clear channel interrupt pending bit for Rcv
-        direction = 0;                        // Rcv flag
-    }
-    if (EDMA_CIPR & 1<<EDMA_CHA_XEVT0)
-    {
-        EDMA_CIPR = (1<<EDMA_CHA_XEVT0);    // clear channel interrupt pending bit for Xmt
-        direction = 1;                        // Xmt flag
-    }
-}
-#endif
+
 void usage(const char* name)
 {
     fprintf(stderr, "%s in.wav out.mp1 bitrate\n", name);
 }
 
-//======================================================= Main ==================================================================//
 int main(int argc, char *argv[])
 {
     const char *infile, *outfile;
@@ -462,34 +390,7 @@ int main(int argc, char *argv[])
         convert_buf[n] = in[0] | (in[1] << 8);
     }
 
-#if 0
-    IRQ_globalDisable();                           //disable interrupts
-    /* Select McBsp 0 connection to daughtercard on J3 */
-    DSK6713_rset(DSK6713_MISC , MCBSP1SEL);        // McBSP0 route to Daughter Card
-    CSL_init();                                    // run chip support initialization
-    /* Initialize the LED and DIP switch modules of the BSL */
-    DSK6713_DIP_init();                            // init DIP Switches
-    /* Initialize GPIO for timing measurement */
-    gpio_handle = GPIO_open(GPIO_DEV0,GPIO_OPEN_RESET);
-    GPIO_Config gpio_config = {
-              0x00000000, /* gpgc - GPIO Global Control register */
-              0xFFFFFFFF, /* gpen - GPIO Enable register */
-              0xFFFFFFFF, /* gdir - GPIO Direction register -> 0 : inp, 1 : outp */
-              0xFFFFFFFF, /* gpval - GPIO Value register */
-              0x00000000, /* gphm - GPIO0 High Mask register -> all interrupts disabled for io pins */
-              0x00000000, /* gplm - GPIO1 High Mask register -> all interrupts to cpu or edma disabled  */
-              0x00000000  /* gppol - GPIO0 Interrupt Polarity register -> default state */
-      };
-      GPIO_config(gpio_handle,&gpio_config);
-
-  /* define input signal for simulation    */
-  for(i_m=0;i_m<BUFLEN;i_m++)
-  {
-      noise=rand();
-      input[i_m]=(short)( (1*cos(2*PI*5*i_m/BUFLEN)+0.25*cos(2*PI*16*i_m/BUFLEN)+0.5*cos(2*PI*80*i_m/BUFLEN))*(32767/1.75) );
-  }
-#endif 
-  /* create cos-mod-matrix */
+    // create cos-mod-matrix 
     for(i_m=0;i_m<32;i_m++)
     {
         for(k_m=0;k_m<64;k_m++)
@@ -499,7 +400,7 @@ int main(int argc, char *argv[])
             T[i_m][k_m]=2*(cos((i_m+0.5)*(k_m-511/2)*PI/32-teta));
         }
     }
-    /* some pointer references */
+    // some pointer references
     y1_part_fb = filt_outA;
     pWork_fb = filt_outB;
     pWork_fft = work_fft;
@@ -510,22 +411,23 @@ int main(int argc, char *argv[])
     pOut2 = Out2;
     pFRAME1 = FRAME1;
 
-    /* create twiddle factors for radix2 fft */
+    // create twiddle factors for radix2 fft
     for( i_m = 0 ; i_m < NFFT/RADIX ; i_m++ ) 
     {
-        W[i_m].re = cos(2*PI*i_m/NFFT);                // real component of W
-        W[i_m].im = sin(2*PI*i_m/NFFT);                // neg imag component
+        W[i_m].re = cos(2*PI*i_m/NFFT);          // real component of W
+        W[i_m].im = sin(2*PI*i_m/NFFT);          // neg imag component
     }
 
-    digitrev_index(iTwid, NFFT/RADIX, RADIX);        // produces index for bitrev() W
-    bitrev((float*)W, iTwid, NFFT/RADIX);                       // bit reverse W
-    digitrev_index(iData, NFFT, RADIX);                // produces index for bitrev() Data
+    digitrev_index(iTwid, NFFT/RADIX, RADIX);    // produces index for bitrev() W
+    bitrev((float*)W, iTwid, NFFT/RADIX);        // bit reverse W
+    digitrev_index(iData, NFFT, RADIX);          // produces index for bitrev() Data
 
-    /* create hanning window for fft */
+    // create hanning window for fft
     for(i_m=0; i_m<NFFT; i_m++)
     {
         hanning[i_m]=(1/0.54)*(0.5+0.5*cos(2*PI*(i_m-255)/(NFFT-1)));    // Hann Fenster mi_mt kompensieren der Grunddämpfung (sqrt(8/2)) ooder (sqrt(8/3)) ??? check it!!!
     }
+
     for(i_m=0;i_m<(2*BUFLEN);i_m++)
     {
         pFRAME1[i_m]=0xFFFF;    // init value Xmt value
@@ -536,142 +438,62 @@ int main(int argc, char *argv[])
     pFRAME1[1]=0xCCCC;
     pFRAME1[2]=0xF0F0;
     pFRAME1[3]=0xAAAA;
-#if 0
-    /* clear and disable EDMA channel 12 and 15 events */
-    EDMA_EER &= ~((1<<EDMA_CHA_XEVT0) | (1<<EDMA_CHA_REVT1));
-    EDMA_ECR = ((1<<EDMA_CHA_XEVT0) | (1<<EDMA_CHA_REVT1));
-    init_table();     /* EDMA buffer init */
-    initMcbsp1();     /* init McBSP1 to Rcv data from ADC */
-    initMcbsp0();    /* init McBSP0 to Xmt data through Daughter Card Connector */
-    /* set EDMA channel Reg.-Bits */
-    EDMA_EER |= ((1<<EDMA_CHA_REVT1) | (1<<EDMA_CHA_XEVT0));        // Event Enable Register
-    EDMA_ESR = ((1<<EDMA_CHA_REVT1) | (1<<EDMA_CHA_XEVT0));            // Event Select Register
-    EDMA_CIER |= ((1 << EDMA_CHA_REVT1) | (1 << EDMA_CHA_XEVT0));    // Channel Interrupt Enable Register
-    /* create EDMA Interrupt */
-    IRQ_map(EDMA_CHA_REVT1, 8);            // map McBSP1 Rcv to INT8 - EDMA
-    IRQ_reset(EDMA_CHA_REVT1);            // reset codec
-    IRQ_enable(EDMA_CHA_REVT1);            // enable CODEC event Rcv INT8
-    IRQ_set(EDMA_CHA_REVT1);            // manually start the first interrupt
-    IRQ_map(EDMA_CHA_XEVT0, 8);            // map McBSP1 Xmt to INT8 - EDMA
-    IRQ_reset(EDMA_CHA_XEVT0);            // reset codec
-    IRQ_enable(EDMA_CHA_XEVT0);            // enable CODEC event Xmt INT8
-    IRQ_set(EDMA_CHA_XEVT0);            // manually start the first interrupt
-    IRQ_globalEnable();                   // globally enable interrupts
-    IRQ_nmiEnable();                      // enable NMI interrupt
-#endif
 
     uint32_t *table_Xmt;
     int samples_offset = 0;
+
     while(1)
-    {    // infinity loop
-        
+    {        
         uint32_t outbuf[BUFLEN];
             
         table_Xmt = outbuf;
         int out_size = sizeof(outbuf);
 
-        //if(direction != -1)
-        {    // Rcv or Xmt Interrupt pending
-//            if(direction == 0)
-            {
-#if 0
-                /* toggle gpio pin for timing measurment */
-                toggle=1;
-                GPIO_pinWrite(gpio_handle,(Uint32)4, (Uint32) toggle);
-#endif
-                count_fb=0;        // reset FFT counter
-                count_12=0;        // reset FB Counter
-                count_poly=0;    // reset polyphase analysis filterbank counter
-                /* ANALYSIS FILTERBANK */
-                if(calc_polyphase_fb(&convert_buf[samples_offset], channels))   /* calc polyphase components */
-                {
-                    fprintf(stderr, "ERROR: calc_polyphase_fb failed\n");
-                    return -1;
-                }
+        count_fb = 0;        // reset FFT counter
+        count_12 = 0;        // reset FB Counter
+        count_poly = 0;      // reset polyphase analysis filterbank counter
 
-                calc_cos_mod();        /* calc cosinus modulation */
-                /* FFT */
-                calc_overlap();                /* create fft input vector with 128 overlapping samples */
-#if 1
-                cfftr2_dit((float*)pxFFT, (float*)W, NFFT);    /* TI floating-point complex radix2 fft */
-#else
-                //kiss_fft(fft_cfg, timeDomainIn , frequencyDomain);
-#endif
-                bitrev((float*)pxFFT, iData, NFFT);    /* bit reverse W */
-                alpha_beta_mag();            /* fast magnitude estimation */
-                calc_mag_log();            /* fast log calculation for sound pressure */
-                /* PSYCHOACOUSTIC MODEL */
-                scalefactor();        /* determine scalefactor     */
-                sound_pressure();    /* determine sound pressure    */
-                find_tonals();        /* find masker */
-                dec_tonals(bitrate);        /* decimate masker */
-                indiv_mask_th();    /* determine individual masking threshold */
-                global_mask_th();    /* determine glabal masking threshold */
-                min_mask_th();        /* determine minimum masking threshold for each subband */
-                calc_SMR();            /* calc signal- to mask-ratio */
-                bit_alloc(bitrate);        /* dynamic bit allocation */
-                /* QUANTIZE SUBBAND SAMPLES*/
-                quantization_and_tx_frame();    /* quantize 32*12 subband samples */
-#if 0
-                if(direction==1)    // if Xmt Interrupt is pending
-                    direction=1;
-                else
-                    direction=-1;    // reset EDMA direction
-
-                /* toggle gpio pin for timing measurment */
-                toggle=0;
-                GPIO_pinWrite(gpio_handle,(Uint32)4, (Uint32) toggle);
-#endif
-            }
-            
-            //if(direction == 1)
-            {        // data Xmt trough data card connector
-                /* copy compressed data to Xmt_EDMA_Buffer */
-#if 0
-                if(!(DSK6713_DIP_get(0)))
-#endif
-                {    // Switch down
-                    /* write data to EDMA buffer */
-                    for(i_m=0;i_m<BUFLEN;i_m++)
-                    {
-                        table_Xmt[i_m]=(unsigned int)( (((unsigned int)pFRAME1[(i_m*2+1)]&0x0000FFFF)<<16) | (unsigned int)pFRAME1[(i_m*2)]&0x0000FFFF );
-                    }
-#if 0
-                /* copy original data to Xmt_EDMA_Buffer */
-                }else{    // Switch down
-                    table_Xmt[0]=0xAAAAC0C0;    // another start sequence for original data instead of compressed data
-                    table_Xmt[1]=0xF0F0AAAA;
-                    /* write data to EDMA buffer */
-                    for(i_m=2;i_m<(BUFLEN/2+2);i_m++)
-                    {
-                        table_Xmt[i_m]=(unsigned int)( (((((unsigned int)original[(2*(i_m-2)+1)])&0x0000FFFF))<<16) | ((((unsigned int)original[(2*(i_m-2))])&0x0000FFFF)) );
-                    }
-                    /* fill rest of buffer with FFF.. */
-                    for(i_m=(BUFLEN/2+2);i_m<BUFLEN;i_m++)
-                    {
-                        table_Xmt[i_m]=0xFFFFFFFF;
-                    }
-#endif
-                }
-
-
-                fwrite(outbuf, 1, BUFLEN*sizeof(uint32_t), out);
-#if 0
-                if(direction==0)    // if Rcv EDMA Interrupt is pending
-                    direction=0;    // hold this direction
-                else                // otherwise
-                    direction=-1;    // reset EDMA direction
-#endif
-            }
-#if 0
-            // clear any pending EDMA complete interrupt events
-            ICR = (1 << 8);
-            EDMA_CIPR = ((1 << EDMA_CHA_REVT1) | (1 << EDMA_CHA_XEVT0));
-#endif
+        /* ANALYSIS FILTERBANK */
+        if(calc_polyphase_fb(&convert_buf[samples_offset], channels))   /* calc polyphase components */
+        {
+            fprintf(stderr, "ERROR: calc_polyphase_fb failed\n");
+            return -1;
         }
+
+        calc_cos_mod();        /* calc cosinus modulation */
+
+        /* FFT */
+        calc_overlap();                /* create fft input vector with 128 overlapping samples */
+        cfftr2_dit((float*)pxFFT, (float*)W, NFFT);    /* TI floating-point complex radix2 fft */
+        bitrev((float*)pxFFT, iData, NFFT);    /* bit reverse W */
+        alpha_beta_mag();            /* fast magnitude estimation */
+        calc_mag_log();            /* fast log calculation for sound pressure */
+
+        /* PSYCHOACOUSTIC MODEL */
+        scalefactor();        /* determine scalefactor     */
+        sound_pressure();    /* determine sound pressure    */
+        find_tonals();        /* find masker */
+        dec_tonals(bitrate);        /* decimate masker */
+        indiv_mask_th();    /* determine individual masking threshold */
+        global_mask_th();    /* determine glabal masking threshold */
+        min_mask_th();        /* determine minimum masking threshold for each subband */
+        calc_SMR();            /* calc signal- to mask-ratio */
+        bit_alloc(bitrate);        /* dynamic bit allocation */
+
+        /* QUANTIZE SUBBAND SAMPLES*/
+        quantization_and_tx_frame();    /* quantize 32*12 subband samples */
+
+        // write data 
+        for(i_m=0; i_m < BUFLEN; i_m++)
+        {
+            table_Xmt[i_m]=(unsigned int)( (((unsigned int)pFRAME1[(i_m*2+1)]&0x0000FFFF)<<16) | (unsigned int)pFRAME1[(i_m*2)]&0x0000FFFF );
+        }
+
+        fwrite(outbuf, 1, BUFLEN*sizeof(uint32_t), out);
 
         samples_offset += BUFLEN*channels;
         printf("\r[%d]", samples_offset);
+
         if((numSamples-samples_offset) < BUFLEN*channels)
         {
             break;
@@ -689,14 +511,14 @@ int main(int argc, char *argv[])
 
 }
 
-
 void swapPointer_fb(float** inp, float** wrk)
 {
     float *tmp=*inp;
     *inp=*wrk;
     *wrk=tmp;
 }
-/* EDMA buffer initialization for Xmt and Rcv */
+
+/* buffer initialization for Xmt and Rcv */
 void init_table(void)
 {
     short ind=0;
@@ -706,105 +528,3 @@ void init_table(void)
         table_Rcv[ind] = 0;
     }
 }
-#if 0
-/* Configure EDMA SPI transmit channel */
-void initEdma0(void) {
-    // get hEdmaXmt handle and reset channel for McBSP1 writes
-    hEdmaXmt = EDMA_open(EDMA_CHA_XEVT0, EDMA_OPEN_RESET);
-    /* Register configurations */
-    gEdmaConfigXmt.dst = MCBSP_getXmtAddr(hMcbsp0);    // Destination Address
-    gEdmaConfigXmt.src = (Uint32)&table_Xmt;        // Source Address
-    gEdmaConfigXmt.opt = 0x211C0002;        // 001=HIGH PRIO | 00=32BIT | 0=1DIM | 01=SUM_NONE | 0=1DIM | 00=DUM_INC | 1=TCINT | 1100=INTERRUPT->EDMA_CHA_XEVT0 | 00000000000000 | 1=LINK | 0=ELE_SYNC;
-    gEdmaConfigXmt.rld = (Uint32)BUFLEN;    // ELE_RLD=BUFLEN
-    gEdmaConfigXmt.cnt = (Uint32)BUFLEN;    // ELE_CNT=BUFLEN
-    gEdmaConfigXmt.idx = 0x00000000;        // DEFAULT
-    // then configure the Xmt table
-    EDMA_config(hEdmaXmt, &gEdmaConfigXmt);
-    // get handle for reload table
-    hEdmaReloadXmt = EDMA_allocTable(-1);
-    // Configure the Xmt reload table
-    EDMA_config(hEdmaReloadXmt, &gEdmaConfigXmt);
-    // link back to table start
-    EDMA_link(hEdmaXmt,hEdmaReloadXmt);
-    EDMA_link(hEdmaReloadXmt, hEdmaReloadXmt);
-    // enable EDMA channel
-    EDMA_enableChannel(hEdmaXmt);
-}
-/* McBSP0 configurations to Xmt data through Daughter Card Connector J3 */
-void initMcbsp0(void) {
-    /* Open the codec data McBSP */
-    hMcbsp0 = MCBSP_open(MCBSP_DEV0, MCBSP_OPEN_RESET);
-    Mymcbsp0.spcr = 0x00000000;    // RESET STATE: FRST=GRST=XRST=RRST=0
-    MCBSP_config(hMcbsp0, &Mymcbsp0);
-    // Receive Control Register (RCR):
-    Mymcbsp0.rcr  = 0x000100A0;    // (unused) 1 Databit Delay and 32 Bit Data receive (16 Bit change A to 4)
-    // Transmit Control Register (XCR):
-    Mymcbsp0.xcr  = 0x000100A0;    // 1 Databit Delay and 32 Bit Data transfer (16 Bit change A to 4)
-    // Sample Rate Generator Register (SRGR):
-    Mymcbsp0.srgr = 0x00000000;    //    Extern Clock from SCLK Pin to drive internal CLK
-    // Multichannel Control Register (MCR):
-    Mymcbsp0.mcr  = 0x0;        // DEFAULT
-    // Receive Channel Enable Register (RCER):
-    Mymcbsp0.rcer = 0x0;        // DEFAULT
-    // Transmit Channel Enable Registers (XCER):
-    Mymcbsp0.xcer = 0x0;        // DEFAULT
-    // Pin Control Register (PCR):
-    Mymcbsp0.pcr  = 0x0000030F;    // external FS, internal CLK generation
-    //MCBSP_config(hMcbsp0, &Mymcbsp0);
-    //Mymcbsp0.spcr = 0x00201800;    // XINTM=2->XINT is generated by a new frame synchronization   |   SPI Mode CLKSTP=11b
-    MCBSP_config(hMcbsp0, &Mymcbsp0);
-    Mymcbsp0.spcr = 0x00401800;    // GRST=1 | XINTM=2 | SPI Mode CLKSTP=11b
-    MCBSP_config(hMcbsp0, &Mymcbsp0);
-    initEdma0();  // Initialize the EDMA controller
-    // again Serial Port Control Register (SPCR):
-    Mymcbsp0.spcr = 0x00411801;    // xrst=rrst=1 OUT OF RESET
-    MCBSP_config(hMcbsp0, &Mymcbsp0);
-}
-/* Configure EDMA for McBSP1 Rcv Channel*/
-void initEdma1(void) {
-    // get hEdmaRcv handle and reset channel for McBSP1 writes
-    hEdmaRcv = EDMA_open(EDMA_CHA_REVT1, EDMA_OPEN_RESET);
-    // Get the scr address of DR for McBSP1
-    gEdmaConfigRcv.src = MCBSP_getRcvAddr(hMcbsp1);    // Source Address
-    gEdmaConfigRcv.dst = (Uint32)&table_Rcv;        // Destination Address
-    gEdmaConfigRcv.opt = 0x203F0002;        // 001=HIGH PRIO | 00=32BIT | 0=1DIM | 00=SUM_NONE | 0=1DIM | 01=DUM_INC | 1=TCINT | 1111=INTERRUPT->EDMA_CHA_REVT1 | 00000000000000 | 1=LINK | 0=ELE_SYNC;
-    gEdmaConfigRcv.cnt = (Uint32)BUFLEN;    // ELE_CNT=BUFLEN
-    gEdmaConfigRcv.rld = (Uint32)BUFLEN;    // ELE_RLD=BUFLEN
-    gEdmaConfigRcv.idx = 0x00000000;        // DEFAULT
-    // then configure the Rcv table
-    EDMA_config(hEdmaRcv, &gEdmaConfigRcv);
-    // get handle for reload table
-      hEdmaReloadRcv = EDMA_allocTable(-1);
-    // Configure the Rcv reload table
-    EDMA_config(hEdmaReloadRcv, &gEdmaConfigRcv);
-    // link back to table start
-    EDMA_link(hEdmaRcv,hEdmaReloadRcv);
-    EDMA_link(hEdmaReloadRcv, hEdmaReloadRcv);
-    // enable EDMA channel
-    EDMA_enableChannel(hEdmaRcv);
-}
-/* McBSP1 configurations to Rcv data from ADC */
-void initMcbsp1(void) {
-    /* Open the codec data McBSP */
-    hMcbsp1 = MCBSP_open(MCBSP_DEV1, MCBSP_OPEN_RESET);
-    Mymcbsp1.spcr = 0x00000000;    // RESET STATE: FRST=GRST=XRST=RRST=0
-    MCBSP_config(hMcbsp1, &Mymcbsp1);
-    // Receive Control Register (RCR):
-    Mymcbsp1.rcr  = 0x000000A0;    // 0 Databit Delay and 32 Bit Data receive (16 Bit change A to 4)
-    // Transmit Control Register (XCR):
-    Mymcbsp1.xcr  = 0x000000A0;    // (unused) 0 Databit Delay and 32 Bit Data transfer (16 Bit change A to 4)
-    // Multichannel Control Register (MCR):
-    Mymcbsp1.mcr  = 0x0;    // DEFAULT
-    // Receive Channel Enable Register (RCER):
-    Mymcbsp1.rcer = 0x0;    // DEFAULT
-    // Transmit Channel Enable Registers (XCER):
-    Mymcbsp1.xcer = 0x0;    // DEFAULT
-    // Pin Control Register (PCR):
-    Mymcbsp1.pcr  = 0x03;    // external FS, CLK from AIC23 Codec
-    MCBSP_config(hMcbsp1, &Mymcbsp1);
-    initEdma1();  // Initialize the EDMA controller
-    // again Serial Port Control Register (SPCR):
-    Mymcbsp1.spcr = 0x00010001;        // xrst=rrst=1 OUT OF RESET
-    MCBSP_config(hMcbsp1, &Mymcbsp1);
-}
-#endif
