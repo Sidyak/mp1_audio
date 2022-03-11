@@ -237,21 +237,25 @@ short Ton_list_leng=0;      // length of tonals
 short compr_rate;           // bit-rate depending compression rate
 short cb;                   // callable number of bits at given bit-rate
 float adb;                  // currently available data bits
-short fft_done=0, fb_done=0; // busy flags
-short first_FRAME=1;
-short BSCF_done=0;
-short band_cnt=0;
-short total_bit_leng=0;
+short fft_done = 0, fb_done = 0; // busy flags
+short first_FRAME = 1;
+short BSCF_done = 0;
+short band_cnt = 0;
 short BSPL_rx[BANDSIZE];
 float scf_rx[BANDSIZE];
-short tot_bits=0;
-short cnt_out=0,out_flag=0;
+short tot_bits = 0;
+short cnt_out=0,out_flag = 0;
 short tot_bits_rx;
-short cnt_FRAME_read=0;
-short FRAME1[2*12*32]={0};
+short cnt_FRAME_read = 0;
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+uint8_t FRAME1[sizeof(short)*2*12*32] = {0};
+uint8_t *pFRAME1;
+#else
+short FRAME1[2*12*32] = {0};
 short *pFRAME1;
-short cnt_FRAME_fill=0;
-short index_nTon=0;
+#endif
+uint32_t cnt_FRAME_fill = 0;
+short index_nTon = 0;
 
 // lookup table for mid-thread quantization 
 float exp2LUT[14]=
@@ -303,7 +307,7 @@ void global_mask_th(void);
 void min_mask_th(void);
 void calc_SMR(void);
 void bit_alloc(int bitrate);
-void quantization_and_tx_frame(void);
+int quantization_and_tx_frame(void);
 
 void usage(const char* name)
 {
@@ -430,14 +434,30 @@ int main(int argc, char *argv[])
 
     for(i_m=0;i_m<(2*BUFLEN);i_m++)
     {
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+        pFRAME1[i_m]=0xFF;    // init value Xmt value
+        pFRAME1[i_m+1]=0xFF;
+#else
         pFRAME1[i_m]=0xFFFF;    // init value Xmt value
+#endif
     }
 
     /* Frame synchronisation sequence */
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    pFRAME1[0]=0xAA;
+    pFRAME1[1]=0xAA;
+    pFRAME1[2]=0xCC;
+    pFRAME1[3]=0xCC;
+    pFRAME1[4]=0xF0;
+    pFRAME1[5]=0xF0;
+    pFRAME1[6]=0xAA;
+    pFRAME1[7]=0xAA;
+#else
     pFRAME1[0]=0xAAAA;
     pFRAME1[1]=0xCCCC;
     pFRAME1[2]=0xF0F0;
     pFRAME1[3]=0xAAAA;
+#endif
 
     uint32_t *table_Xmt;
     int samples_offset = 0;
@@ -481,17 +501,33 @@ int main(int argc, char *argv[])
         bit_alloc(bitrate);        /* dynamic bit allocation */
 
         /* QUANTIZE SUBBAND SAMPLES*/
-        quantization_and_tx_frame();    /* quantize 32*12 subband samples */
+        uint32_t valid_bits = quantization_and_tx_frame();    /* quantize 32*12 subband samples */
 
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+
+        uint32_t residual_bits = valid_bits % 8; 
+
+        if(residual_bits)
+        {
+            // TODO: is zero padding okay?
+            printf("WARNING: number of bits to write (%d) not integer of a byte\n", valid_bits);
+            valid_bits += (8-residual_bits); // zero padding
+        }
+
+        // write data 
+        memcpy((void*)table_Xmt, (void*)pFRAME1, valid_bits/8);
+        
+#else
         // write data 
         for(i_m=0; i_m < BUFLEN; i_m++)
         {
-            table_Xmt[i_m]=(unsigned int)( (((unsigned int)pFRAME1[(i_m*2+1)]&0x0000FFFF)<<16) | (unsigned int)pFRAME1[(i_m*2)]&0x0000FFFF );
+            table_Xmt[i_m] = (unsigned int)( (((unsigned int)pFRAME1[(i_m*2+1)]&0x0000FFFF)<<16) | (unsigned int)pFRAME1[(i_m*2)]&0x0000FFFF );
         }
 
         fwrite(outbuf, 1, BUFLEN*sizeof(uint32_t), out);
-
+#endif
         samples_offset += BUFLEN*channels;
+
         printf("\r[%d]", samples_offset);
 
         if((numSamples-samples_offset) < BUFLEN*channels)

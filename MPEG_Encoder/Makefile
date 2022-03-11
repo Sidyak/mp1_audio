@@ -1,6 +1,7 @@
 
 CC := g++
-CCFLAGS := -I. -Iinc/
+CCFLAGS := -I. -Iinc/ 
+#-DFIX_FOR_REAL_BITRATE_REDUCTION
 DBGFLAGS := -g
 CCOBJFLAGS := $(CCFLAGS) -c -g
 

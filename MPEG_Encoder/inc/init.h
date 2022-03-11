@@ -103,7 +103,6 @@ extern short fft_done, fb_done;    // busy flags
 extern short first_FRAME;
 extern short BSCF_done;
 extern short band_cnt;
-extern short total_bit_leng;
 extern short BSPL_rx[BANDSIZE];
 extern float scf_rx[BANDSIZE];
 extern short tot_bits;
@@ -111,7 +110,11 @@ extern short cnt_out,out_flag;
 extern short tot_bits_rx;
 extern short cnt_FRAME_read;
 extern short FRAME1[2*12*32];
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+extern uint8_t *pFRAME1;
+#else
 extern short *pFRAME1;
+#endif
 extern short cnt_FRAME_fill;
 extern short index_nTon;
 
@@ -159,30 +162,7 @@ extern float SNR[15];
 extern float quantization_table[14][3];
 
 /*  Function Prototypes */
-extern void initEdma0(void);
-extern void init_table(void);
-extern void initMcbsp0(void);
-extern void initMcbsp1(void);
-extern void swapPointer_fb(float** inp, float** wrk);
 extern float fir_filter(float delays[], float coe[], short N_delays, float x_n);
-extern void calc_polyphase_fb(void);
-extern void calc_cos_mod(void);
-extern void cfftr2_dit( float *x, const float *w, short N);
-extern void bitrev(Complex *xs, short *index, int n);
-extern void digitrev_index(short *index, int n, int radix);
-extern void calc_mag_log(void);
-extern void alpha_beta_mag(void);
-extern void calc_overlap(void);
-extern void scalefactor(void);
-extern void sound_pressure(void);
-extern void find_tonals(void);
-extern void dec_tonals(void);
-extern void indiv_mask_th(void);
-extern void global_mask_th(void);
-extern void min_mask_th(void);
-extern void calc_SMR(void);
-extern void bit_alloc(void);
-extern void quantization_and_tx_frame(void);
 
 /* filterbank */
 #define N_delays_H_filt_320_delays 16

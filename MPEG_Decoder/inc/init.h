@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-// Description	    decoder initialization header
-// Author: 			Kim Radmacher
-// Created on:		22.01.2015
+// Description        decoder initialization header
+// Author:             Kim Radmacher
+// Created on:        22.01.2015
 //
 // Copyright (C) 2022 Kim Radmacher
 //
@@ -28,14 +28,14 @@
 #include <stdio.h>
 #endif
 
-#define BUFLEN 		384		// (any-exept of 1) ADC and SPI Buffer length for Rcv/Xmt
-#define BANDSIZE 	32
+#define BUFLEN         384        // (any-exept of 1) ADC and SPI Buffer length for Rcv/Xmt
+#define BANDSIZE     32
 
-extern unsigned int table_Xmt[BUFLEN];	// EDMA Xmt buffer
-extern unsigned int table_Rcv[BUFLEN];	// EDMA Rcv buffer
-extern short direction;				// EDMA Interrupt Rcv=0, Xmt=1, default=-1
+extern unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
+extern unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
+extern short direction;                // EDMA Interrupt Rcv=0, Xmt=1, default=-1
 extern short cnt_samp;
-extern short count_fb, count, count_12, cnt_out, count_12_synthese;	// counter for filterbank and polayphase rotating switch
+extern short count_fb, count, count_12, cnt_out, count_12_synthese;    // counter for filterbank and polayphase rotating switch
 
 /***** some control variables *****/
 extern int i_m,k_m;
@@ -43,23 +43,27 @@ extern int i_m,k_m;
 /***** Filterbank variables *****/
 extern float M[32][64],T[32][64], S[32][12];
 extern float teta;
-extern float INT_y,INT_y1,INT_y2;	// current polyphase outputs
-extern float out_delay[64];		// polyphase component outputs
-extern float y_rx[12][BANDSIZE];	// demultiplexed subbands
-extern float Out1[768];			// 64 polyphases * 12 samples=768
-extern float *pOut1;				// pointer reference
+extern float INT_y,INT_y1,INT_y2;    // current polyphase outputs
+extern float out_delay[64];        // polyphase component outputs
+extern float y_rx[12][BANDSIZE];    // demultiplexed subbands
+extern float Out1[768];            // 64 polyphases * 12 samples=768
+extern float *pOut1;                // pointer reference
 
 /***** Psychoacoustic Model variables *****/
-extern short FRAME1[448];		// Rcv Frame
-extern short *pFRAME1;				// pointer reference
-extern short BSPL_rx[BANDSIZE];	// received bit values for subbands
-extern float scf_rx[BANDSIZE];		// received bit values for scalefactors
-extern short tot_bits_rx;			// number of received bits
-extern short cnt_FRAME_read;		// array index for received data
-extern short start_decoding;		// start decoding flag
-extern short buffer[BUFLEN];	// McBSP buffer
-extern short start_frame_offset;	// start sequence to data offset
-extern short start_found;		// flag for correct star sequence found
+extern short FRAME1[448];        // Rcv Frame
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+extern uint8_t *pFRAME1;        // pointer reference
+#else
+extern short *pFRAME1;            // pointer reference
+#endif
+extern short BSPL_rx[BANDSIZE];    // received bit values for subbands
+extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
+extern short tot_bits_rx;            // number of received bits
+extern short cnt_FRAME_read;        // array index for received data
+extern short start_decoding;        // start decoding flag
+extern short buffer[BUFLEN];    // McBSP buffer
+extern short start_frame_offset;    // start sequence to data offset
+extern short start_found;        // flag for correct star sequence found
 
 /* from mpeg_tables.h */
 extern float table_scf[63];

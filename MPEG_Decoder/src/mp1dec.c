@@ -75,8 +75,13 @@ float Out1[768];              // 64 polyphases * 12 samples=768
 float *pOut1;                 // pointer reference
 
 // Psychoacoustic Model variables 
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+uint8_t FRAME1[sizeof(short)*448]={0};        // Rcv Frame
+uint8_t *pFRAME1;             // pointer reference
+#else
 short FRAME1[448]={0};        // Rcv Frame
 short *pFRAME1;               // pointer reference
+#endif
 short BSPL_rx[BANDSIZE];      // received bit values for subbands
 float scf_rx[BANDSIZE];       // received bit values for scalefactors
 short tot_bits_rx;            // number of received bits
@@ -155,7 +160,10 @@ int main(int argc, char *argv[])
     /* clear Frame data */
     for(i_m=0; i_m<(448); i_m++)
     {
-        pFRAME1[i_m]=0x0000;    // init value - Transmission takes 8 ms at 192 kbps
+        pFRAME1[i_m] = 0;    // init value - Transmission takes 8 ms at 192 kbps
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+        pFRAME1[i_m+1] = 0;
+#endif
     }
 
     init_table();     // init Tables
@@ -209,6 +217,10 @@ int main(int argc, char *argv[])
                 {
 #if DEBUG
                     printf("%d\n", table_Rcv[start_frame_offset+2+i_m]);
+#endif
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+                    // TODO: make pFRAME1 byte wise
+                    error "TODO: make pFRAME1 byte wise"
 #endif
                     pFRAME1[i_m*2] = (short)(0x0000FFFF & table_Rcv[start_frame_offset+2+i_m]);            // lower 16 Bit from rcv 32 Bit
                     pFRAME1[i_m*2+1] = (short)((0xFFFF0000 & table_Rcv[start_frame_offset+2+i_m])>>16);    // upper 16 Bit from rcv 32 Bit
