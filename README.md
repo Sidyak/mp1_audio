@@ -15,4 +15,6 @@ use simple Makefile
 
 # known issues
 -currently for mono audio only
--files size of out.mp1 is not compressed yet since output samples are always written using int32_t
+-files size of out.mp1 is not compressed yet since data written into frame is using short instead of bit wise writing
+-memory consumption needs to be optimized
+-clean up (coding style)
