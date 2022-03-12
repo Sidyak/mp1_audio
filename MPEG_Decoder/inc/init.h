@@ -22,13 +22,15 @@
 #ifndef INIT_H_
 #define INIT_H_
 
+#include <stdint.h>
+
 //#define DEBUG
 
 #ifdef DEBUG
 #include <stdio.h>
 #endif
 
-#define BUFLEN         384        // (any-exept of 1) ADC and SPI Buffer length for Rcv/Xmt
+#define BUFLEN      (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define BANDSIZE     32
 
 extern unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
@@ -45,7 +47,7 @@ extern float M[32][64],T[32][64], S[32][12];
 extern float teta;
 extern float INT_y,INT_y1,INT_y2;    // current polyphase outputs
 extern float out_delay[64];        // polyphase component outputs
-extern float y_rx[12][BANDSIZE];    // demultiplexed subbands
+extern int32_t y_rx[12][BANDSIZE];    // demultiplexed subbands
 extern float Out1[768];            // 64 polyphases * 12 samples=768
 extern float *pOut1;                // pointer reference
 
@@ -56,14 +58,16 @@ extern uint8_t *pFRAME1;        // pointer reference
 #else
 extern short *pFRAME1;            // pointer reference
 #endif
-extern short BSPL_rx[BANDSIZE];    // received bit values for subbands
-extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
+extern int32_t BSPL_rx[BANDSIZE];    // received bit values for subbands
+extern int32_t scf_rx[BANDSIZE];        // received bit values for scalefactors
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data
 extern short start_decoding;        // start decoding flag
 extern short buffer[BUFLEN];    // McBSP buffer
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
 extern short start_frame_offset;    // start sequence to data offset
 extern short start_found;        // flag for correct star sequence found
+#endif
 
 /* from mpeg_tables.h */
 extern float table_scf[63];
@@ -80,15 +84,7 @@ extern float SNR[15];
 extern float quantization_table[14][3];
 
 /*  Function Prototypes */
-extern void initEdma0(void);
-extern void init_table(void);
-extern void initMcbsp0();
-extern void initMcbsp1();
-extern void swapPointer_fb(float** inp, float** wrk);
 extern float fir_filter(float delays[], float coe[], short N_delays, float x_n);
-extern void calc_cos_mod_synthese(void);
-extern void calc_polyphase_synthese_fb(void);
-extern void rx_frame(void);
 
 /* FB */
 #define N_delays_H_filt_320_delays 16

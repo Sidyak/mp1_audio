@@ -42,11 +42,10 @@ const uint32_t bitMask[32 + 1] =
 static uint32_t bitsInCache = 0;
 static uint32_t cacheWord = 0;
 static uint32_t bitNdx = 0;
-static uint32_t validBits = 0; // valid bits for current frame 
-static uint32_t bufSize = 0;
-static uint32_t bufBits = 0;
+static uint32_t validBits = 0;  // valid bits for current frame 
+static uint32_t bufSize = 4;    // write always 4 byte 
 
-int quantization_and_tx_frame(void)
+int quantization_and_tx_frame(uint32_t byteOffset)
 {
     uint8_t n_band, scf_ind, sample, N;
     short number;
@@ -55,6 +54,10 @@ int quantization_and_tx_frame(void)
     cnt_FRAME_fill = 4;    // first data starts right behind the preamble (frame sync sequence of 4*16 bit)
 
     validBits = 0;
+
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    pFRAME1 += byteOffset;
+#endif
 
     // first 32 frame positions are the number of bits for each subband
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
@@ -117,19 +120,11 @@ int quantization_and_tx_frame(void)
     return validBits;
 }
 
-/**
- * \brief WriteBits Function. This function writes numberOfBits of value into
- * bitstream.
- *
- * \param pBitBuf       pointer to bitstream buffer
- * \param value         The data to be written
- * \param numberOfBits  The number of bits to be written
- * \return              Number of bits written
- */
 uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits)
 {
     const uint32_t validMask = bitMask[numberOfBits];
 
+    // Put always 32 bits into buffer
     if ((bitsInCache + numberOfBits) < CACHE_BITS)
     {
         bitsInCache += numberOfBits;
@@ -137,22 +132,17 @@ uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits)
     }
     else
     {
-        /* Put always 32 bits into memory             */
-        /* - fill cache's LSBits with MSBits of value */
-        /* - store 32 bits in memory using subroutine */
-        /* - fill remaining bits into cache's LSBits  */
-        /* - upper bits in cache are don't care       */
-
-        /* Compute number of bits to be filled into cache */
         int missing_bits = CACHE_BITS - bitsInCache;
         int remaining_bits = numberOfBits - missing_bits;
         value = value & validMask;
-        /* Avoid shift left by 32 positions */
+        // Avoid shift left by 32 positions
         uint32_t cacheWord = (missing_bits == 32) ? 0 : (cacheWord << missing_bits);
         cacheWord |= (value >> (remaining_bits));
 
         putBits(pBitBuf, cacheWord, 32);
 
+        pBitBuf += 4; // move to next 32 bits
+        
         cacheWord = value;
         bitsInCache = remaining_bits;
       }
@@ -164,10 +154,10 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
 {
     if (numberOfBits != 0)
     {
-       uint32_t byteOffset0 = bitNdx >> 3;
-       uint32_t bitOffset = bitNdx & 0x7;
+        uint32_t byteOffset0 = bitNdx >> 3;
+        uint32_t bitOffset = bitNdx & 0x7;
 
-        bitNdx = (bitNdx + numberOfBits) & (bufBits - 1);
+        bitNdx = (bitNdx + numberOfBits) & (bufSize*8 - 1);
         validBits += numberOfBits;
 
         uint32_t byteMask = bufSize - 1;
@@ -193,8 +183,6 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
         pBitBuf[byteOffset1] = (uint8_t)(cache >> 16);
         pBitBuf[byteOffset2] = (uint8_t)(cache >> 8);
         pBitBuf[byteOffset3] = (uint8_t)(cache >> 0);
-
-        pBitBuf += 4; // move to next 32 bits
 
         if ((bitOffset + numberOfBits) > 32)
         {

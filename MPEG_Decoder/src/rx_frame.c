@@ -18,48 +18,155 @@
 // See the License for the specific language governing permissions
 // and limitations under the License.
 //----------------------------------------------------------------------------
-
+#include <stdio.h>
 #include "init.h"
 
-void rx_frame(void)
+static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t *retBits);
+
+static uint32_t bitNdx = 0;
+static const uint32_t bufSize = 64;//BUFLEN*sizeof(short); 
+static uint32_t validBits = 0;  // valid bits for current frame
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+static uint32_t start_found = 0;
+#endif
+const uint32_t syncWords[2] = {0xAAAACCCC, 0xF0F0AAAA};
+
+int32_t rx_frame(FILE *in_file)
 {
-    short n_band, sample,N;
+    short n_band, sample, N;
     tot_bits_rx = 0;
     cnt_FRAME_read = 0;
+    //validBits = 0;
+
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    int32_t sW[2];
+    
+    while(start_found == 0)
+    {
+        if(readBits(in_file, pFRAME1, 32, &sW[0]))
+        {
+            return -1;
+        }
+        if(readBits(in_file, pFRAME1, 32, &sW[1]))
+        {
+            return -1;
+        }
+        
+        if((sW[0] == syncWords[0]) && (sW[1] == syncWords[1]))
+        {
+            printf("Preamble for COMPRESSED found\n");
+            start_found = 1; // start sequence for compressed data
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: could not find syncwords\n");
+            return -1;
+        }
+    }
+#endif
 
     // read bit allocations
     // read 32 * 4 bits for bit alloc of each subband
     for(n_band=0; n_band<BANDSIZE; n_band++)
     {
-        BSPL_rx[n_band]=pFRAME1[cnt_FRAME_read++];
-        tot_bits_rx+=4;
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+        if(readBits(in_file, pFRAME1, 4, &BSPL_rx[n_band]))
+        {
+            return -1;
+        }
+#else    
+        BSPL_rx[n_band] = pFRAME1[cnt_FRAME_read++];
+#endif
+        tot_bits_rx += 4;
         scf_rx[n_band] = 0;    // reset scf_rx
     }
 
     // read scale factors
     for(n_band=0; n_band<BANDSIZE; n_band++)
     {
-        N=BSPL_rx[n_band];
-        if(N>0)
+        N = BSPL_rx[n_band];
+        if(N > 0)
         {
-            tot_bits_rx+=6;
             // read the index of the (6 bit) scale factor
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+            if(readBits(in_file, pFRAME1, 6, &scf_rx[n_band]))
+            {
+                return -1;
+            }
+#else
             scf_rx[n_band] = table_scf[pFRAME1[cnt_FRAME_read++]];   // look into scf table
+#endif
+            tot_bits_rx+=6;
         }
     }
 
     // read max. 12*32 = 384 samples
-    for(sample=0; sample<12; sample++)
+    for(sample=0; sample < 12; sample++)
     {
         for(n_band=0; n_band<BANDSIZE; n_band++)
         {
             y_rx[sample][n_band] = 0.0;    // init to 0
-            N = BSPL_rx[n_band];
+            N = BSPL_rx[n_band]; // TODO: move out of for loop and swap for loops to improve performance
             if(N > 0)
             {
                 tot_bits_rx += N;
-                y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++]*scf_rx[n_band])/(1<<(N-1) ) ;
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+                if(readBits(in_file, pFRAME1, N, &y_rx[sample][n_band]))
+                {
+                    return -1;
+                }
+#else
+                y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1) ) ;
+#endif
             }
         }
     }
+
+    return (tot_bits_rx);
+}
+
+int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t* retBits)
+{
+    uint32_t byteOffset = bitNdx >> 3;
+    uint32_t bitOffset = bitNdx & 0x07;
+//printf("got %d valid bits\n", validBits);
+    bitNdx = (bitNdx + numberOfBits) & (bufSize*8 - 1);
+
+    uint32_t byteMask = bufSize - 1;
+
+    if(validBits < numberOfBits)
+    {
+        int readBytes = fread(pBitstream, 1, bufSize, in_file);
+        printf("read %d bits and got %d valid bits", readBytes*8, validBits);
+        validBits += readBytes*8;
+        printf(" and got new %d valid bits\n", validBits);
+        if(validBits <= 7 /*0*/)
+        {
+            return 1;
+        }
+    }
+
+#if 0
+    *retBits = (pBitstream[byteOffset & byteMask] << 24) |
+                       (pBitstream[(byteOffset + 1) & byteMask] << 16) |
+                       (pBitstream[(byteOffset + 2) & byteMask] << 8) |
+                        pBitstream[(byteOffset + 3) & byteMask];
+#else
+    *retBits = (pBitstream[byteOffset & byteMask]) |
+                       (pBitstream[(byteOffset + 1) & byteMask] << 8) |
+                       (pBitstream[(byteOffset + 2) & byteMask] << 16) |
+                        pBitstream[(byteOffset + 3) & byteMask] << 24;
+#endif
+    if (bitOffset)
+    {
+        *retBits <<= bitOffset;
+        *retBits |= pBitstream[(byteOffset + 4) & byteMask] >> (8 - bitOffset);
+    }
+
+    validBits -= numberOfBits;
+
+    *retBits = (*retBits >> (32 - numberOfBits));
+//    printf("read uint32_t 0x%x\n", *retBits);
+
+    return 0;
 }

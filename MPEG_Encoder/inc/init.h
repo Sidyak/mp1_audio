@@ -30,7 +30,7 @@
 #include <stdio.h>
 #endif
 
-#define BUFLEN 384 //512    // buffer length
+#define BUFLEN (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define NFFT 512    // fft length
 #define PI 3.14159265358979
 #define RADIX 2        // radix 2 fft

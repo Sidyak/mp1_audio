@@ -1,8 +1,9 @@
 
 CC := g++
-CCFLAGS := -I. -Iinc/ 
+CCFLAGS := -I. -Iinc/ -g 
+#-DFIX_FOR_REAL_BITRATE_REDUCTION
 DBGFLAGS := -g
-CCOBJFLAGS := $(CCFLAGS) -c -g
+CCOBJFLAGS := $(CCFLAGS) -c
 
 # path macros
 BIN_PATH := bin

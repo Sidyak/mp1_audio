@@ -48,17 +48,17 @@ extern "C" {
 }
 #endif
 
-//#define DEBUG
+#define DEBUG
 
-#define BUFLEN 384   // bufflength for EDMA buffer
+#define BUFLEN (12*32) //384   // bufflength for EDMA buffer
 #define NFFT 512     // fft length
 #define PI 3.14159265358979
 #define RADIX 2      // radix 2 fft
 #define BANDSIZE 32  // 32 filter subbands
 
-unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
-unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
-short original[BUFLEN]={0};        // Original samples
+const uint32_t syncWords[2] = {0xAAAACCCC, 0xF0F0AAAA};
+//unsigned int table_Xmt[BUFLEN+sizeof(syncWords)];    // buffer
+short original[BUFLEN+sizeof(syncWords)] = {0};        // Original samples
 
 // FFT variables
 typedef struct Complex_tag {float re,im;}Complex;
@@ -221,19 +221,19 @@ struct Masker_List {
 struct Masker_List Ton_list;
 struct Masker_List nTon_list;
 float scf[BANDSIZE];        // scale factors
-float Ls[32]={0};           // sound pressure
-float LTtm[25][102]={0};    // individual tonal mask threshold
-float LTnm[25][102]={0};    // individual non-tonal mask threshold
-float LTg[102]={0};         // gloabal mask threshold
-float LTmin[BANDSIZE]={0};  // min. mask threshold
-float SMR[BANDSIZE]={0};    // signal-mask-ratio
-float MNR[BANDSIZE]={0};    // mask-noise-ratio
-short BSCF[BANDSIZE]={0};   // bit values for scale factors
-short BSPL[BANDSIZE]={0};   // bit values for subbands
-short flag[NFFT/2]={0};        // flag if tonal or non-tonal masker
-short ton_ind=0;            // index
-short nton_ind=0;           // index
-short Ton_list_leng=0;      // length of tonals
+float Ls[32] = {0};         // sound pressure
+float LTtm[25][102] = {0};  // individual tonal mask threshold
+float LTnm[25][102] = {0};  // individual non-tonal mask threshold
+float LTg[102] = {0};       // gloabal mask threshold
+float LTmin[BANDSIZE] = {0};// min. mask threshold
+float SMR[BANDSIZE] = {0};  // signal-mask-ratio
+float MNR[BANDSIZE] = {0};  // mask-noise-ratio
+short BSCF[BANDSIZE] = {0}; // bit values for scale factors
+short BSPL[BANDSIZE] = {0}; // bit values for subbands
+short flag[NFFT/2] = {0};   // flag if tonal or non-tonal masker
+short ton_ind = 0;          // index
+short nton_ind = 0;         // index
+short Ton_list_leng = 0;    // length of tonals
 short compr_rate;           // bit-rate depending compression rate
 short cb;                   // callable number of bits at given bit-rate
 float adb;                  // currently available data bits
@@ -250,6 +250,7 @@ short cnt_FRAME_read = 0;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 uint8_t FRAME1[sizeof(short)*2*12*32] = {0};
 uint8_t *pFRAME1;
+uint8_t *pFRAME1_write;
 #else
 short FRAME1[2*12*32] = {0};
 short *pFRAME1;
@@ -262,7 +263,7 @@ float exp2LUT[14]=
 { 
     0.500000000000000, 0.250000000000000, 0.125000000000000, 0.062500000000000, 0.031250000000000, 0.015625000000000,  0.007812500000000,
     0.003906250000000, 0.001953125000000,  0.000976562500000, 0.000488281250000, 0.000244140625000, 0.000122070312500, 0.000061035156250
-};//{0.5, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256, 1/512, 1/1024, 1/2048, 1/4096, 1/8192, 1/16384};
+};
 
 // Filterbank variables
 short tw_sample;        // counter for 12 subband samples
@@ -274,11 +275,11 @@ float *y1_part_fb, *pWork_fb;
 float INT_y,INT_y1,INT_y2;
 float out_delay[64];
 float y_rx[12][BANDSIZE];
-short count_poly=0,count_12_synthese=0, ind_calc_overlap, ORIGINAL=0;
+short count_poly = 0,count_12_synthese = 0, ind_calc_overlap, ORIGINAL = 0;
 float Out1[768],Out2[768];    // 64 Polyphasen 12 Sample Output buffer
 float *pOut1;
 float *pOut2;
-short count_fb=0,count_fft=63, count_12=0;
+short count_fb = 0, count_fft = 63, count_12 = 0;
 
 // some control variables
 short ki=0;
@@ -286,8 +287,9 @@ short cnt_=0;
 short cnt_samp=0;        // counter for 384 samples
 short count_INT=0, i_m=0, k_m=0;
 float inL=0,inR=0;       // current left and right sample
-
+#if 0
 void init_table(void);
+#endif
 void swapPointer_fb(float** inp, float** wrk);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 int calc_polyphase_fb(int16_t *input, int channels);
@@ -307,7 +309,7 @@ void global_mask_th(void);
 void min_mask_th(void);
 void calc_SMR(void);
 void bit_alloc(int bitrate);
-int quantization_and_tx_frame(void);
+int quantization_and_tx_frame(uint32_t byteOffset);
 
 void usage(const char* name)
 {
@@ -414,6 +416,9 @@ int main(int argc, char *argv[])
     pOut1 = Out1;
     pOut2 = Out2;
     pFRAME1 = FRAME1;
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    pFRAME1_write = FRAME1;
+#endif
 
     // create twiddle factors for radix2 fft
     for( i_m = 0 ; i_m < NFFT/RADIX ; i_m++ ) 
@@ -432,26 +437,18 @@ int main(int argc, char *argv[])
         hanning[i_m]=(1/0.54)*(0.5+0.5*cos(2*PI*(i_m-255)/(NFFT-1)));    // Hann Fenster mi_mt kompensieren der Grunddämpfung (sqrt(8/2)) ooder (sqrt(8/3)) ??? check it!!!
     }
 
-    for(i_m=0;i_m<(2*BUFLEN);i_m++)
-    {
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-        pFRAME1[i_m]=0xFF;    // init value Xmt value
-        pFRAME1[i_m+1]=0xFF;
+    memset(pFRAME1, -1, 2*BUFLEN);
 #else
-        pFRAME1[i_m]=0xFFFF;    // init value Xmt value
-#endif
+    for(i_m=0; i_m < (2*BUFLEN); i_m++)
+    {
+        pFRAME1[i_m] = 0xFFFF;    // init value Xmt value
     }
+#endif
 
-    /* Frame synchronisation sequence */
+    /* Frame synchronisation sequence (can be used for one time header in future) */
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    pFRAME1[0]=0xAA;
-    pFRAME1[1]=0xAA;
-    pFRAME1[2]=0xCC;
-    pFRAME1[3]=0xCC;
-    pFRAME1[4]=0xF0;
-    pFRAME1[5]=0xF0;
-    pFRAME1[6]=0xAA;
-    pFRAME1[7]=0xAA;
+    memcpy(pFRAME1, syncWords, 2*sizeof(uint32_t));
 #else
     pFRAME1[0]=0xAAAA;
     pFRAME1[1]=0xCCCC;
@@ -460,14 +457,15 @@ int main(int argc, char *argv[])
 #endif
 
     uint32_t *table_Xmt;
-    int samples_offset = 0;
+    int32_t samples_offset = 0;
+    int32_t nFrame = 0; // frame counter
 
     while(1)
     {        
-        uint32_t outbuf[BUFLEN];
+        nFrame++;
+        uint32_t outbuf[BUFLEN+sizeof(syncWords)];
             
         table_Xmt = outbuf;
-        int out_size = sizeof(outbuf);
 
         count_fb = 0;        // reset FFT counter
         count_12 = 0;        // reset FB Counter
@@ -500,8 +498,15 @@ int main(int argc, char *argv[])
         calc_SMR();            /* calc signal- to mask-ratio */
         bit_alloc(bitrate);        /* dynamic bit allocation */
 
+        // offset for syncWords is neccesary for the first frame
+        uint32_t writeOffset = 0;
+        if(nFrame == 1)
+        {
+            writeOffset = sizeof(syncWords);
+        }
+
         /* QUANTIZE SUBBAND SAMPLES*/
-        uint32_t valid_bits = quantization_and_tx_frame();    /* quantize 32*12 subband samples */
+        uint32_t valid_bits = quantization_and_tx_frame(writeOffset);    /* quantize 32*12 subband samples */
 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 
@@ -514,9 +519,26 @@ int main(int argc, char *argv[])
             valid_bits += (8-residual_bits); // zero padding
         }
 
-        // write data 
-        memcpy((void*)table_Xmt, (void*)pFRAME1, valid_bits/8);
-        
+        // write data
+#ifdef DEBUG
+        printf("write (%d) bits to output\n", valid_bits);
+#endif
+
+#if 0
+        printf("write (0x%x)\n", pFRAME1_write[0]);
+        printf("write (0x%x)\n", pFRAME1_write[1]);
+        printf("write (0x%x)\n", pFRAME1_write[2]);
+        printf("write (0x%x)\n", pFRAME1_write[3]);
+        printf("write (0x%x)\n", pFRAME1_write[4]);
+        printf("write (0x%x)\n", pFRAME1_write[5]);
+        printf("write (0x%x)\n", pFRAME1_write[6]);
+        printf("write (0x%x)\n", pFRAME1_write[7]);
+        return -1;
+#endif
+        memcpy((void*)table_Xmt, (void*)pFRAME1_write, writeOffset+valid_bits/8);
+        fwrite(outbuf, 1, writeOffset+valid_bits/8, out);
+        //pFRAME1_write += valid_bits/8;
+        //table_Xmt += valid_bits/8; // table_Xmt points to outbuf[384]
 #else
         // write data 
         for(i_m=0; i_m < BUFLEN; i_m++)
@@ -528,7 +550,7 @@ int main(int argc, char *argv[])
 #endif
         samples_offset += BUFLEN*channels;
 
-        printf("\r[%d]", samples_offset);
+        printf("\r[%d|%d]", nFrame, samples_offset);
 
         if((numSamples-samples_offset) < BUFLEN*channels)
         {
@@ -554,13 +576,15 @@ void swapPointer_fb(float** inp, float** wrk)
     *wrk=tmp;
 }
 
+#if 0
 /* buffer initialization for Xmt and Rcv */
 void init_table(void)
 {
     short ind=0;
+    // TODO: Use memset
     for(ind=0;ind<BUFLEN;ind++)
     {
         table_Xmt[ind] = 0;
-        table_Rcv[ind] = 0;
     }
 }
+#endif

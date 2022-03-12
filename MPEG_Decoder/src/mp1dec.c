@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "analysis_coeffs_float.h"  // filterbank coef
 #include "mpeg_tables.h"            // mpeg-1 tables
@@ -48,13 +49,15 @@ extern "C" {
 }
 #endif
 
-//#define DEBUG
+#define DEBUG
 
-#define BUFLEN          384    // buffer length
+#define BUFLEN          (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define PI              3.14159265358979
 #define BANDSIZE        32    // 32 filter subbands
 #define COMPRESSED      1
 #define ORIGINAL        2
+
+const uint32_t syncWords[2] = {0xAAAACCCC, 0xF0F0AAAA};
 
 unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
 unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
@@ -70,34 +73,34 @@ float M[32][64],T[32][64], S[32][12]={0};
 float teta=0;
 float INT_y,INT_y1,INT_y2;    // current polyphase outputs
 float out_delay[64];          // polyphase component outputs
-float y_rx[12][BANDSIZE];     // demultiplexed subbands
+int32_t y_rx[12][BANDSIZE];     // demultiplexed subbands
 float Out1[768];              // 64 polyphases * 12 samples=768
 float *pOut1;                 // pointer reference
 
 // Psychoacoustic Model variables 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-uint8_t FRAME1[sizeof(short)*448]={0};        // Rcv Frame
-uint8_t *pFRAME1;             // pointer reference
+uint8_t FRAME1[448*sizeof(short)] = {0}; // Rcv Frame
+uint8_t *pFRAME1;              // pointer reference
 #else
-short FRAME1[448]={0};        // Rcv Frame
-short *pFRAME1;               // pointer reference
+short FRAME1[448] = {0};        // Rcv Frame
+short *pFRAME1;                 // pointer reference
 #endif
-short BSPL_rx[BANDSIZE];      // received bit values for subbands
-float scf_rx[BANDSIZE];       // received bit values for scalefactors
-short tot_bits_rx;            // number of received bits
-short cnt_FRAME_read=0;       // array index for received data
-short start_decoding=0;       // start decoding flag
-short buffer[BUFLEN]={0};     // McBSP buffer
-short start_frame_offset=0;   // start sequence to data offset
-short start_found=0;          // flag for correct star sequence found
-
+int32_t BSPL_rx[BANDSIZE];        // received bit values for subbands
+int32_t scf_rx[BANDSIZE];         // received bit values for scalefactors
+short tot_bits_rx;              // number of received bits
+short cnt_FRAME_read = 0;       // array index for received data
+short buffer[BUFLEN] = {0};     // McBSP buffer
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
+short start_frame_offset = 0;   // start sequence to data offset
+short start_found = 0;          // flag for correct star sequence found
+#endif
 
 void init_table(void);
 void swapPointer_fb(float** inp, float** wrk);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 void calc_cos_mod_synthese(void);
 void calc_polyphase_synthese_fb(void);
-void rx_frame(void);
+int32_t rx_frame(FILE *in);
 
 void usage(const char* name)
 {
@@ -153,26 +156,30 @@ int main(int argc, char *argv[])
         }
     }
    
-    /* pointer references */
-    pOut1        = Out1;
-    pFRAME1        = FRAME1;
+    // pointer references
+    pOut1 = Out1; // used for synthesis fb
+    pFRAME1 = FRAME1;
 
-    /* clear Frame data */
+    // clear frame buffer
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    memset(pFRAME1, 0, sizeof(FRAME1));
+#else
     for(i_m=0; i_m<(448); i_m++)
     {
         pFRAME1[i_m] = 0;    // init value - Transmission takes 8 ms at 192 kbps
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-        pFRAME1[i_m+1] = 0;
-#endif
     }
+#endif
 
     init_table();     // init Tables
-
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
     start_frame_offset = 0;
+#endif
+
+    uint32_t nFrame = 0; // frame counter
 
     while(1)
     {
-
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
         int readBytes = fread(table_Rcv, 1, BUFLEN/**channels*/*sizeof(int32_t), in);
         if(readBytes == 0)
         {
@@ -181,26 +188,34 @@ int main(int argc, char *argv[])
         }
 
         // find start sequence and the offset to data
-        if( start_found==0 )
+        if(start_found == 0)
         {
-            start_frame_offset=0;
-            start_decoding=0;
-            while( start_found==0 )
+            start_frame_offset = 0;
+            while(start_found == 0)
             {
-                if( (table_Rcv[start_frame_offset]==0xCCCCAAAA) && (table_Rcv[start_frame_offset+1]==0xAAAAF0F0) )
+                if( (table_Rcv[start_frame_offset] == 0xCCCCAAAA) && (table_Rcv[start_frame_offset+1] == 0xAAAAF0F0) )
                 {
                     printf("Preamble for COMPRESSED found\n");
-                    start_found=COMPRESSED;    // start sequence for compressed data
+                    start_found=COMPRESSED; // start sequence for compressed data
+                    //start_frame_offset += 2; // two int32 offset -> done below in copy table_Rcv to pFRAME1
                 }
                 else if( (table_Rcv[start_frame_offset]==0xAAAAC0C0) && (table_Rcv[start_frame_offset+1]==0xF0F0AAAA) )
                 {
                     printf("Preamble for ORIGINAL found\n");
                     start_found=ORIGINAL;    // start sequence for original data samples
+                    printf("ORIGINAL is no use case\n");
+                    break;
                 }
                 else
                 {
                     printf("start_frame_offset = %d\n", start_frame_offset);
                     start_frame_offset++;    // increment offset
+
+                    if(start_frame_offset > 4)
+                    {
+                        fprintf(stderr, "ERROR: could not find syncwords\n");
+                        break;
+                    }
                 }
             }
 
@@ -209,59 +224,42 @@ int main(int argc, char *argv[])
                 start_frame_offset=0;            // reset start offset
                 start_found=0;                    // reset start found flag
                 fprintf(stderr, "start_frame_offset = %d\n", start_frame_offset);
-                return -1;
+                break;
             }
-            else
-            { // copy received data into Frame
-                for(i_m=0; i_m < (224); i_m++)
-                {
-#if DEBUG
-                    printf("%d\n", table_Rcv[start_frame_offset+2+i_m]);
-#endif
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                    // TODO: make pFRAME1 byte wise
-                    error "TODO: make pFRAME1 byte wise"
-#endif
-                    pFRAME1[i_m*2] = (short)(0x0000FFFF & table_Rcv[start_frame_offset+2+i_m]);            // lower 16 Bit from rcv 32 Bit
-                    pFRAME1[i_m*2+1] = (short)((0xFFFF0000 & table_Rcv[start_frame_offset+2+i_m])>>16);    // upper 16 Bit from rcv 32 Bit
-                }
-                if(start_found==COMPRESSED)
-                {    // compressed start sequence
-                    /* Receive data and demultiplex 384 subband samples */
-                    rx_frame();
-                    /* Synthesis FILTERBANK */
-                    calc_cos_mod_synthese();        // cosinus modulation
-                    count_12_synthese=0;
-                    calc_polyphase_synthese_fb();    // polyphase filterbank
+        }
 
-                }
-                start_decoding=1;                // begin decoding
-            }
-        }
-        else
-        { // copy received data into Frame
-            for(i_m=0; i_m < (224); i_m++)
-            {
-                pFRAME1[i_m*2] = (short)(0x0000FFFF & table_Rcv[start_frame_offset+2+i_m]);            // lower 16 Bit from rcv 32 Bit
-                pFRAME1[i_m*2+1] = (short)((0xFFFF0000 & table_Rcv[start_frame_offset+2+i_m])>>16);    // upper 16 Bit from rcv 32 Bit
-            }
-            if(start_found==COMPRESSED)
-            {    // compressed start sequence
-                /* Receive data and demultiplex 384 subband samples */
-                rx_frame();
-                /* Synthesis FILTERBANK */
-                calc_cos_mod_synthese();        // cosinus modulation
-                count_12_synthese=0;
-                calc_polyphase_synthese_fb();    // polyphase filterbank
-            }
-            start_decoding=1;                // begin decoding
-        }
-        if(start_decoding == 1)
+        for(i_m=0; i_m < (224); i_m++)
         {
-            start_decoding=0;
-            /* copy data to Xmt_EDMA_Buffer */
+            pFRAME1[i_m*2] = (short)(0x0000FFFF & table_Rcv[start_frame_offset+2+i_m]);            // lower 16 Bit from rcv 32 Bit
+            pFRAME1[i_m*2+1] = (short)((0xFFFF0000 & table_Rcv[start_frame_offset+2+i_m])>>16);    // upper 16 Bit from rcv 32 Bit
+        }
+
+        if(start_found==COMPRESSED)
+#endif // #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
+        {
+            int32_t bitsReadDone;
+            /* Receive data and demultiplex 384 subband samples */
+            // TODO: pass file pointer to read from
+            bitsReadDone = rx_frame(in);
+            if(bitsReadDone <= 0)
+            {
+                //fprintf(stderr, "ERROR: something went wrong while rx frame\n");
+                //return -1;
+                printf("done decoding\n");
+                break;
+            }
+#ifdef DEBUG
+//            printf("%d bits read\n", bitsReadDone);
+#endif
+            /* Synthesis FILTERBANK */
+            calc_cos_mod_synthese();        // cosinus modulation
+            count_12_synthese=0;
+            calc_polyphase_synthese_fb();    // polyphase filterbank    
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
+            // TODO: start decoding and write to wav file here (before overwriting buffer in rx_frame)
             if(start_found == COMPRESSED)
-            {    /* Compressed */
+#endif
+            {
                 for(i_m=0; i_m<BUFLEN; i_m++)
                 {
                     table_Xmt[i_m] = ((int32_t)buffer[i_m]<<16) & (int32_t)buffer[i_m];
@@ -272,18 +270,19 @@ int main(int argc, char *argv[])
                     wav_write_data(wavOut, (unsigned char*)&oR, 2);
                 }
             }
-            else if(start_found == ORIGINAL)
-            {/* ORIGINAL */
-                for(i_m=0; i_m<BUFLEN; i_m++)
-                {
-                    table_Xmt[i_m] = ((int32_t)buffer[i_m]<<16) & (int32_t)buffer[i_m];
-
-                    int16_t oL = (int16_t)buffer[i_m];
-                    int16_t oR = (int16_t)buffer[i_m];
-                    wav_write_data(wavOut, (unsigned char*)&oL, 2);
-                    wav_write_data(wavOut, (unsigned char*)&oR, 2);
-                }
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
+            else
+            {
+                fprintf(stderr, "ERROR: something went wrong while decoding\n");
+                break;
             }
+#endif
+            nFrame++;
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+            printf("\r[%d]", nFrame);
+#else
+            printf("\r[%d|%d]", nFrame, readBytes);
+#endif
         }
     } // end while(1)
 
