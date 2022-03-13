@@ -19,18 +19,18 @@
 // and limitations under the License.
 //----------------------------------------------------------------------------
 
-#include "init.h"
 #include <math.h>
+#include "init.h"
 
 void scalefactor(void)
 {
-float s_band_max,Sabs;
-short table_len=63, ji, ind, sample;
+    float s_band_max,Sabs;
+    short table_len = 63, ji, ind, sample;
 
     // take maximum of 12 samples in band 'ind' and set as minimum
     for (ind=0; ind<BANDSIZE; ind++)
     {
-        s_band_max=0.0;
+        s_band_max = 0.0;
         for(sample=0; sample<12; sample++)
         {
             Sabs = fabs(S[ind][sample]);
@@ -39,7 +39,7 @@ short table_len=63, ji, ind, sample;
         }
         if(s_band_max > table_scf[0])
         {
-          scf[ind] = table_scf[0];
+            scf[ind] = table_scf[0];
         }
         else 
         {

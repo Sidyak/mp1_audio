@@ -56,7 +56,7 @@ extern "C" {
 #define RADIX 2      // radix 2 fft
 #define BANDSIZE 32  // 32 filter subbands
 
-const uint32_t syncWords[2] = {0xAAAACCCC, 0xF0F0AAAA};
+const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 //unsigned int table_Xmt[BUFLEN+sizeof(syncWords)];    // buffer
 short original[BUFLEN+sizeof(syncWords)] = {0};        // Original samples
 
@@ -245,8 +245,6 @@ short BSPL_rx[BANDSIZE];
 float scf_rx[BANDSIZE];
 short tot_bits = 0;
 short cnt_out=0,out_flag = 0;
-short tot_bits_rx;
-short cnt_FRAME_read = 0;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 uint8_t FRAME1[sizeof(short)*2*12*32] = {0};
 uint8_t *pFRAME1;
@@ -290,7 +288,6 @@ float inL=0,inR=0;       // current left and right sample
 #if 0
 void init_table(void);
 #endif
-void swapPointer_fb(float** inp, float** wrk);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 int calc_polyphase_fb(int16_t *input, int channels);
 void calc_cos_mod(void);
@@ -567,13 +564,6 @@ int main(int argc, char *argv[])
 
     return 0;
 
-}
-
-void swapPointer_fb(float** inp, float** wrk)
-{
-    float *tmp=*inp;
-    *inp=*wrk;
-    *wrk=tmp;
 }
 
 #if 0

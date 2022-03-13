@@ -20,8 +20,9 @@
 // and limitations under the License.
 //----------------------------------------------------------------------------
 
-#include "init.h"
+#include <stdio.h>
 #include <math.h>
+#include "init.h"
 
 #define CACHE_BITS  32
 
@@ -43,7 +44,7 @@ static uint32_t bitsInCache = 0;
 static uint32_t cacheWord = 0;
 static uint32_t bitNdx = 0;
 static uint32_t validBits = 0;  // valid bits for current frame 
-static uint32_t bufSize = 4;    // write always 4 byte 
+static uint32_t bufSize = 64;    // write always 4 byte 
 
 int quantization_and_tx_frame(uint32_t byteOffset)
 {
@@ -82,10 +83,13 @@ int quantization_and_tx_frame(uint32_t byteOffset)
         if(BSCF[n_band] > 0)
         {
             // Store the scf index only
+            // TODO: use a map instead of while
             while(scf[n_band] != table_scf[scf_ind])
             {
                 scf_ind--;
             }
+            
+printf("scfIndex = %d\t", scf_ind);
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
             writeBits(pFRAME1, scf_ind, 6);
 #else
@@ -173,16 +177,30 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
         uint32_t mask = ~((bitMask[numberOfBits] << (32 - numberOfBits)) >> bitOffset);
 
         // read all 4 bytes from buffer and create a 32-bit cache
+#if 0
         uint32_t cache = (((uint32_t)pBitBuf[byteOffset0]) << 24) |
                     (((uint32_t)pBitBuf[byteOffset1]) << 16) |
                     (((uint32_t)pBitBuf[byteOffset2]) << 8) |
                     (((uint32_t)pBitBuf[byteOffset3]) << 0);
+#else
+        uint32_t cache = (((uint32_t)pBitBuf[byteOffset0]) << 0) |
+                    (((uint32_t)pBitBuf[byteOffset1]) << 8) |
+                    (((uint32_t)pBitBuf[byteOffset2]) << 16) |
+                    (((uint32_t)pBitBuf[byteOffset3]) << 24);
+#endif
 
         cache = (cache & mask) | tmp;
+#if 0
         pBitBuf[byteOffset0] = (uint8_t)(cache >> 24);
         pBitBuf[byteOffset1] = (uint8_t)(cache >> 16);
         pBitBuf[byteOffset2] = (uint8_t)(cache >> 8);
         pBitBuf[byteOffset3] = (uint8_t)(cache >> 0);
+#else
+        pBitBuf[byteOffset0] = (uint8_t)(cache >> 0);
+        pBitBuf[byteOffset1] = (uint8_t)(cache >> 8);
+        pBitBuf[byteOffset2] = (uint8_t)(cache >> 16);
+        pBitBuf[byteOffset3] = (uint8_t)(cache >> 24);
+#endif
 
         if ((bitOffset + numberOfBits) > 32)
         {

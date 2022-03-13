@@ -86,7 +86,7 @@ short FRAME1[448] = {0};        // Rcv Frame
 short *pFRAME1;                 // pointer reference
 #endif
 int32_t BSPL_rx[BANDSIZE];        // received bit values for subbands
-int32_t scf_rx[BANDSIZE];         // received bit values for scalefactors
+float scf_rx[BANDSIZE];         // received bit values for scalefactors
 short tot_bits_rx;              // number of received bits
 short cnt_FRAME_read = 0;       // array index for received data
 short buffer[BUFLEN] = {0};     // McBSP buffer
@@ -96,7 +96,6 @@ short start_found = 0;          // flag for correct star sequence found
 #endif
 
 void init_table(void);
-void swapPointer_fb(float** inp, float** wrk);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 void calc_cos_mod_synthese(void);
 void calc_polyphase_synthese_fb(void);
@@ -135,13 +134,13 @@ int main(int argc, char *argv[])
     }
 
     sample_rate = 44100;
-    bits_per_sample = 16*2;
-    channels = 1;//2;
+    bits_per_sample = 16;
+    channels = 1;
     wavOut = wav_write_open(outfile, sample_rate, bits_per_sample, channels);
 
     if (!wavOut)
     {
-        fprintf(stderr, "Unable to open wav file for writing %s\n", infile);
+        fprintf(stderr, "Unable to open wav file for writing %s\n", outfile);
         return 1;
     }
 
@@ -262,12 +261,13 @@ int main(int argc, char *argv[])
             {
                 for(i_m=0; i_m<BUFLEN; i_m++)
                 {
-                    table_Xmt[i_m] = ((int32_t)buffer[i_m]<<16) & (int32_t)buffer[i_m];
+                    //table_Xmt[i_m] = ((int32_t)buffer[i_m]<<16) & (int32_t)buffer[i_m];
 
+                    // TODO: fix for stereo
                     int16_t oL = (int16_t)buffer[i_m];
                     int16_t oR = (int16_t)buffer[i_m];
                     wav_write_data(wavOut, (unsigned char*)&oL, 2);
-                    wav_write_data(wavOut, (unsigned char*)&oR, 2);
+                    //wav_write_data(wavOut, (unsigned char*)&oR, 2);
                 }
             }
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
@@ -290,13 +290,6 @@ int main(int argc, char *argv[])
     fclose(in);
 
     return 0;
-}
-
-void swapPointer_fb(float** inp, float** wrk)
-{
-    float *tmp=*inp;
-    *inp=*wrk;
-    *wrk=tmp;
 }
 
 /* variables initialization for Xmt and Rcv */
