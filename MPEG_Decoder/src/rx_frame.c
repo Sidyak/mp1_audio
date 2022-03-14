@@ -24,7 +24,7 @@
 static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t *retBits);
 
 static uint32_t bitNdx = 0;
-static const uint32_t bufSize = BUFLEN;//BUFLEN*sizeof(short); 
+static const uint32_t bufSize = 256;//BUFLEN*sizeof(short); 
 static uint32_t validBits = 0;  // valid bits for current frame
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 static uint32_t start_found = 0;
@@ -144,7 +144,7 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
     uint32_t byteOffset = bitNdx >> 3;
     uint32_t bitOffset = bitNdx & 0x07;
 //printf("got %d valid bits\n", validBits);
-    bitNdx = (bitNdx + numberOfBits) & (bufSize*8 - 1);
+    bitNdx = (bitNdx + numberOfBits) & (bufSize - 1);
 
     uint32_t byteMask = bufSize - 1;
 
@@ -154,9 +154,9 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
         printf("read %d bits and got %d valid bits", readBytes*8, validBits);
         validBits += readBytes*8;
         printf(" and got new %d valid bits\n", validBits);
-        if(validBits <= 7 /*0*/)
+        if(validBits <= 15 /*0*/)
         {
-            return 1;
+            return -1;
         }
     }
 
