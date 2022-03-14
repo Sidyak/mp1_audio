@@ -44,7 +44,7 @@ static uint32_t bitsInCache = 0;
 static uint32_t cacheWord = 0;
 static uint32_t bitNdx = 0;
 static uint32_t validBits = 0;  // valid bits for current frame 
-static uint32_t bufSize = 64;    // write always 4 byte 
+static uint32_t bufSize = 256;    // write always 4 byte 
 
 int quantization_and_tx_frame(uint32_t byteOffset)
 {
@@ -64,9 +64,9 @@ int quantization_and_tx_frame(uint32_t byteOffset)
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
     {
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-        writeBits(pFRAME1, BSPL[n_band], 4);
+        writeBits(pFRAME1, BSPL[n_band]&0xF, 4);
         total_bit_leng += 4;
-        writeBits(pFRAME1, BSPL[n_band+1], 4);
+        writeBits(pFRAME1, BSPL[n_band+1]&0xF, 4);
         total_bit_leng += 4;
 #else
         pFRAME1[cnt_FRAME_fill++] = BSPL[n_band];
@@ -91,7 +91,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
             
 printf("scfIndex = %d\t", scf_ind);
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            writeBits(pFRAME1, scf_ind, 6);
+            writeBits(pFRAME1, scf_ind&0x3F, 6);
 #else
             pFRAME1[cnt_FRAME_fill++] = scf_ind;
 #endif
@@ -112,7 +112,7 @@ printf("scfIndex = %d\t", scf_ind);
             {   // quantize if bits are available 
                 number = floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) + 0.5 );
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                writeBits(pFRAME1, number, N);
+                writeBits(pFRAME1, number&((1<<N)-1), N);
 #else
                 pFRAME1[cnt_FRAME_fill++] = number;
 #endif
@@ -140,12 +140,12 @@ uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits)
         int remaining_bits = numberOfBits - missing_bits;
         value = value & validMask;
         // Avoid shift left by 32 positions
-        uint32_t cacheWord = (missing_bits == 32) ? 0 : (cacheWord << missing_bits);
-        cacheWord |= (value >> (remaining_bits));
+        uint32_t cW = (missing_bits == 32) ? 0 : (cacheWord << missing_bits);
+        cW |= (value >> (remaining_bits));
 
-        putBits(pBitBuf, cacheWord, 32);
+        putBits(pBitBuf, cW, 32);
 
-        pBitBuf += 4; // move to next 32 bits
+        //pBitBuf += 4; // move to next 32 bits
         
         cacheWord = value;
         bitsInCache = remaining_bits;
@@ -177,7 +177,7 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
         uint32_t mask = ~((bitMask[numberOfBits] << (32 - numberOfBits)) >> bitOffset);
 
         // read all 4 bytes from buffer and create a 32-bit cache
-#if 0
+#if 1
         uint32_t cache = (((uint32_t)pBitBuf[byteOffset0]) << 24) |
                     (((uint32_t)pBitBuf[byteOffset1]) << 16) |
                     (((uint32_t)pBitBuf[byteOffset2]) << 8) |
@@ -190,7 +190,7 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
 #endif
 
         cache = (cache & mask) | tmp;
-#if 0
+#if 1
         pBitBuf[byteOffset0] = (uint8_t)(cache >> 24);
         pBitBuf[byteOffset1] = (uint8_t)(cache >> 16);
         pBitBuf[byteOffset2] = (uint8_t)(cache >> 8);
