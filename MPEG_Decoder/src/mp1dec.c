@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
             /* Receive data and demultiplex 384 subband samples */
             // TODO: pass file pointer to read from
             bitsReadDone = rx_frame(in);
-            if(bitsReadDone <= 0)
+            if(bitsReadDone < 0)
             {
                 //fprintf(stderr, "ERROR: something went wrong while rx frame\n");
                 //return -1;
