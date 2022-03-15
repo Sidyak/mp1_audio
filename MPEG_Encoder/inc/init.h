@@ -107,10 +107,11 @@ extern short BSPL_rx[BANDSIZE];
 extern float scf_rx[BANDSIZE];
 extern short tot_bits;
 extern short cnt_out,out_flag;
-extern short FRAME1[2*12*32];
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+extern uint8_t FRAME1[16*1024*1024];//2*BUFLEN*sizeof(short)];
 extern uint8_t *pFRAME1;
 #else
+extern short FRAME1[2*BUFLEN];
 extern short *pFRAME1;
 #endif
 extern short cnt_FRAME_fill;

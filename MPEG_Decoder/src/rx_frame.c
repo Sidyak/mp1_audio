@@ -24,7 +24,7 @@
 static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t *retBits);
 
 static uint32_t bitNdx = 0;
-static const uint32_t bufSize = 256;//BUFLEN*sizeof(short); 
+static const uint32_t bufSize = 16*1024*1024;//BUFLEN*sizeof(short); 
 static uint32_t validBits = 0;  // valid bits for current frame
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 static uint32_t start_found = 0;
@@ -36,7 +36,6 @@ int32_t rx_frame(FILE *in_file)
     short n_band, sample, N;
     tot_bits_rx = 0;
     cnt_FRAME_read = 0;
-    //validBits = 0;
 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     int32_t sW[2];
@@ -79,11 +78,11 @@ int32_t rx_frame(FILE *in_file)
         {
             return -1;
         }
-        BSPL_rx[n_band] = bspl & mask;
+        BSPL_rx[n_band] = bspl ;
 #else    
         BSPL_rx[n_band] = pFRAME1[cnt_FRAME_read++];
 #endif
-//printf("BSPL_rx[%d] = %d\t", n_band, BSPL_rx[n_band]);
+//printf("BSPL[%d] = %d\t", n_band, BSPL_rx[n_band]);
         tot_bits_rx += 4;
         scf_rx[n_band] = 0;    // reset scf_rx
     }
@@ -102,8 +101,8 @@ int32_t rx_frame(FILE *in_file)
             {
                 return -1;
             }
-//            printf("scfIndex = %d\t", scfIndex&mask);
-            scf_rx[n_band] = table_scf[scfIndex&mask];   // look into scf table
+//printf("scfIndex[%d] = %d\t", n_band ,scfIndex);
+            scf_rx[n_band] = table_scf[scfIndex];   // look into scf table
 #else
             scf_rx[n_band] = table_scf[pFRAME1[cnt_FRAME_read++]];   // look into scf table
 #endif
@@ -128,7 +127,8 @@ int32_t rx_frame(FILE *in_file)
                 {
                     return -1;
                 }
-                y_rx[sample][n_band] = (int32_t)((y & mask) * scf_rx[n_band]/(1<<(N-1)));
+                if(y) printf("y[%d][%d] = %d\t", sample, n_band, y);
+                y_rx[sample][n_band] = ((float)(y ) * scf_rx[n_band]/(1<<(N-1)));
 #else
                 y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1) ) ;
 #endif
@@ -144,14 +144,14 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
     uint32_t byteOffset = bitNdx >> 3;
     uint32_t bitOffset = bitNdx & 0x07;
 //printf("got %d valid bits\n", validBits);
-    bitNdx = (bitNdx + numberOfBits) & (bufSize - 1);
+    bitNdx = (bitNdx + numberOfBits) & (bufSize*8 - 1);
 
     uint32_t byteMask = bufSize - 1;
 
     if(validBits < numberOfBits)
     {
         int readBytes = fread(pBitstream, sizeof(uint8_t), bufSize, in_file);
-        printf("read %d bits and got %d valid bits", readBytes*8, validBits);
+        printf("\nread %d bits and got %d valid bits", readBytes*8, validBits);
         validBits += readBytes*8;
         printf(" and got new %d valid bits\n", validBits);
         if(validBits <= 15 /*0*/)
@@ -164,7 +164,7 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
 //printf(" pBitstream[%d] = 0x%x\n", byteOffset+1, pBitstream[byteOffset+1]);
 //printf(" pBitstream[%d] = 0x%x\n", byteOffset+2, pBitstream[byteOffset+2]);
 //printf(" pBitstream[%d] = 0x%x\n", byteOffset+3, pBitstream[byteOffset+3]);
-#if 0
+#if 1
     *retBits = (pBitstream[byteOffset & byteMask] << 24) |
                        (pBitstream[(byteOffset + 1) & byteMask] << 16) |
                        (pBitstream[(byteOffset + 2) & byteMask] << 8) |

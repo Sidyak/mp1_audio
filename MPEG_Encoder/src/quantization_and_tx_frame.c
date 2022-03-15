@@ -44,7 +44,8 @@ static uint32_t bitsInCache = 0;
 static uint32_t cacheWord = 0;
 static uint32_t bitNdx = 0;
 static uint32_t validBits = 0;  // valid bits for current frame 
-static uint32_t bufSize = 256;    // write always 4 byte 
+static uint32_t bufSize = 16*1024*1024;    // needs to be 2^x 
+const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
 int quantization_and_tx_frame(uint32_t byteOffset)
 {
@@ -54,19 +55,40 @@ int quantization_and_tx_frame(uint32_t byteOffset)
     uint32_t total_bit_leng = 0;    // total bits planed to use in current frame
     cnt_FRAME_fill = 4;    // first data starts right behind the preamble (frame sync sequence of 4*16 bit)
 
-    validBits = 0;
-
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    pFRAME1 += byteOffset;
+    const uint32_t validBitsPrev = validBits;
+#if 0
+    bitsInCache = 0;
+    cacheWord = 0;
+    bitNdx = 0;
+    validBits = 0;  // valid bits for current frame
+#endif
+
+    if(byteOffset != 0)
+    {
+        printf("write syncwords: 0x%x 0x%x\n", syncWords[0], syncWords[1]);
+        //writeBits(pFRAME1, syncWords[1], 32);
+        writeBits(pFRAME1, syncWords[0]>>28, 4);
+        writeBits(pFRAME1, syncWords[0]&((1<<28)-1), 28);
+        printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
+        //writeBits(pFRAME1, syncWords[1], 32);
+        writeBits(pFRAME1, syncWords[1]>>26, 6);
+        writeBits(pFRAME1, syncWords[1]&((1<<26)-1), 26);
+        total_bit_leng += 2*32;
+        printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
+    }
+    //pFRAME1 += byteOffset;
 #endif
 
     // first 32 frame positions are the number of bits for each subband
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
     {
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-        writeBits(pFRAME1, BSPL[n_band]&0xF, 4);
+//printf("BSPL[%d] = %d\t", n_band, BSPL[n_band]);
+//printf("BSPL[%d] = %d\t", n_band+1, BSPL[n_band+1]);
+        writeBits(pFRAME1, BSPL[n_band] & 0xF, 4);
         total_bit_leng += 4;
-        writeBits(pFRAME1, BSPL[n_band+1]&0xF, 4);
+        writeBits(pFRAME1, BSPL[n_band+1] & 0xF, 4);
         total_bit_leng += 4;
 #else
         pFRAME1[cnt_FRAME_fill++] = BSPL[n_band];
@@ -89,9 +111,9 @@ int quantization_and_tx_frame(uint32_t byteOffset)
                 scf_ind--;
             }
             
-printf("scfIndex = %d\t", scf_ind);
+//printf("scfIndex[%d] = %d\t", n_band ,scf_ind);
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            writeBits(pFRAME1, scf_ind&0x3F, 6);
+            writeBits(pFRAME1, scf_ind & 0x3F, 6);
 #else
             pFRAME1[cnt_FRAME_fill++] = scf_ind;
 #endif
@@ -102,25 +124,29 @@ printf("scfIndex = %d\t", scf_ind);
     // following frame positions own the bits of quantized subbands
     for(sample=0; sample < 12; sample++)
     {
+// TODO: switch for loops for less computational complexity
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
+// TODO: N' is sometimes less than required, e.g. write -512 with 2 bits. Fix bit alloc!
             N = BSPL[n_band];   // determine number of required bits in subband
 #ifdef DEBUG
-                printf("%d bits used in subband %d\n", N, n_band);
+            printf("%d bits used in subband %d\n", N, n_band);
 #endif
             if(N > 0)
-            {   // quantize if bits are available 
+            {   // quantize if bits are available TODO: is floor neccessary here?
                 number = floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) + 0.5 );
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                writeBits(pFRAME1, number&((1<<N)-1), N);
+                if(number) printf("y[%d][%d] = %d with %d bits\t", sample, n_band, number, N);
+                writeBits(pFRAME1, number & ((1<<N)-1), N);
 #else
+//              if(number) printf("y[%d][%d] = %d with %d bits\t", sample, n_band, number, N);
                 pFRAME1[cnt_FRAME_fill++] = number;
 #endif
-               total_bit_leng += N;
+                total_bit_leng += N;
             }
         }
     }
-
+//printf("validBits = %d, total_bit_leng = %d\n", validBits-validBitsPrev, total_bit_leng);
     return validBits;
 }
 
@@ -142,7 +168,7 @@ uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits)
         // Avoid shift left by 32 positions
         uint32_t cW = (missing_bits == 32) ? 0 : (cacheWord << missing_bits);
         cW |= (value >> (remaining_bits));
-
+//printf("cW = 0x%x\n", cW);
         putBits(pBitBuf, cW, 32);
 
         //pBitBuf += 4; // move to next 32 bits
@@ -190,6 +216,7 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
 #endif
 
         cache = (cache & mask) | tmp;
+//        printf("cache = 0x%x\n", cache );
 #if 1
         pBitBuf[byteOffset0] = (uint8_t)(cache >> 24);
         pBitBuf[byteOffset1] = (uint8_t)(cache >> 16);

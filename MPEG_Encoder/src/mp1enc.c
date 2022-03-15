@@ -48,7 +48,7 @@ extern "C" {
 }
 #endif
 
-#define DEBUG
+//#define DEBUG
 
 #define BUFLEN (12*32) //384   // bufflength for EDMA buffer
 #define NFFT 512     // fft length
@@ -246,11 +246,11 @@ float scf_rx[BANDSIZE];
 short tot_bits = 0;
 short cnt_out=0,out_flag = 0;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-uint8_t FRAME1[sizeof(short)*2*12*32] = {0};
+uint8_t FRAME1[16*1024*1024];//sizeof(short)*2*BUFLEN] = {0};
 uint8_t *pFRAME1;
 uint8_t *pFRAME1_write;
 #else
-short FRAME1[2*12*32] = {0};
+short FRAME1[2*BUFLEN] = {0};
 short *pFRAME1;
 #endif
 uint32_t cnt_FRAME_fill = 0;
@@ -435,7 +435,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    memset(pFRAME1, -1, 2*BUFLEN);
+    memset(pFRAME1, 0xFFFF, 2*BUFLEN);
 #else
     for(i_m=0; i_m < (2*BUFLEN); i_m++)
     {
@@ -445,7 +445,8 @@ int main(int argc, char *argv[])
 
     /* Frame synchronisation sequence (can be used for one time header in future) */
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    memcpy(pFRAME1, syncWords, 2*sizeof(uint32_t));
+    //memcpy(pFRAME1, syncWords, 2*sizeof(uint32_t));
+
 #else
     pFRAME1[0]=0xAAAA;
     pFRAME1[1]=0xCCCC;
@@ -456,14 +457,16 @@ int main(int argc, char *argv[])
     uint32_t *table_Xmt;
     int32_t samples_offset = 0;
     int32_t nFrame = 0; // frame counter
-
+    uint32_t valid_bits;
+    
     while(1)
     {        
         nFrame++;
+#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
         uint32_t outbuf[BUFLEN+sizeof(syncWords)];
             
         table_Xmt = outbuf;
-
+#endif
         count_fb = 0;        // reset FFT counter
         count_12 = 0;        // reset FB Counter
         count_poly = 0;      // reset polyphase analysis filterbank counter
@@ -503,8 +506,7 @@ int main(int argc, char *argv[])
         }
 
         /* QUANTIZE SUBBAND SAMPLES*/
-        uint32_t valid_bits = quantization_and_tx_frame(writeOffset);    /* quantize 32*12 subband samples */
-
+        valid_bits = quantization_and_tx_frame(writeOffset);    /* quantize 32*12 subband samples */
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 
         uint32_t residual_bits = valid_bits % 8; 
@@ -532,8 +534,14 @@ int main(int argc, char *argv[])
         printf("write (0x%x)\n", pFRAME1_write[7]);
         return -1;
 #endif
-        memcpy((void*)table_Xmt, (void*)pFRAME1_write, writeOffset+valid_bits/8);
-        fwrite(outbuf, 1, writeOffset+valid_bits/8, out);
+        if(valid_bits/8 > (16*1024*1024))
+        {
+            printf("WARNING: you might want to check for buffer overflow\n");
+        }
+#if 0
+        memcpy((void*)table_Xmt, (void*)pFRAME1_write, /*writeOffset+*/valid_bits/8);
+        fwrite(outbuf, 1, /*writeOffset+*/valid_bits/8, out);
+#endif
         //pFRAME1_write += valid_bits/8;
         //table_Xmt += valid_bits/8; // table_Xmt points to outbuf[384]
 #else
@@ -555,6 +563,14 @@ int main(int argc, char *argv[])
         }
     }    // end while(1)
 
+#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
+    if(valid_bits/8 > (16*1024*1024))
+    {
+        printf("WARNING: Buffer too small for required bitstream\n");
+    }
+
+    fwrite(pFRAME1_write, 1, valid_bits/8, out);
+#endif
     printf("\n");
 
     free(input_buf);

@@ -29,31 +29,31 @@ void bit_alloc(int bitrate)
 {
 //    short compr_rate;//=(48*16)/BITRATE;    // Kompressionsrate - darauf achten, dass diese immer ganzzahlig ist -> BITRATE= {48,96,128,192,256,384,768}
 //    short cb;//=(12*32*16)/compr_rate;  // Verfuegbare Anzahl an Bits fuer den Frame bei gegebener Bitrate
-    float bbal=128;                    // Anzahl an Bits, die fuer die Bitzuweisung benoetigt werden
-    float banc=0;                      // Anzahl an Bits, die fuer die Zusatzinformationen benoetigt werden
+    float bbal = 128;                    // Anzahl an Bits, die fuer die Bitzuweisung benoetigt werden
+    float banc = 0;                      // Anzahl an Bits, die fuer die Zusatzinformationen benoetigt werden
     float ancillary_data=bbal+banc;    // Bitanzahl fuer Zusatzinformation
     float adb;    // Anzahl an Bits, die fuer Samples und SCF verfuegbar sind
-    float bitleng=0;                // aktuelle/momentane Anzahl an verwendeten Bits
+    float bitleng = 0;                // aktuelle/momentane Anzahl an verwendeten Bits
     float snr_values[BANDSIZE];
-    float MNRmin=0;
-    short n_band=0,n_snr=0;        // Laufvar.
-    short Bit_done_List_index=0;    // Counter fuer Teilbaender fuer die keine Bits mehr zugewiesen werden muessen/duerfen
-    short Bit_done_List[BANDSIZE]={0};    // Array fuer Liste der Subbaender, die bereits maximale Anzahl an Bits bekommen haben
-    short index=0;                    // index des Subband dem gerade Bitszugewiesen wird
-    short SMR_over_0dB=32;                // Fuer Anzahl der zu Codierten Teilbaender
+    float MNRmin = 0;
+    short n_band = 0,n_snr = 0;        // Laufvar.
+    short Bit_done_List_index = 0;    // Counter fuer Teilbaender fuer die keine Bits mehr zugewiesen werden muessen/duerfen
+    short Bit_done_List[BANDSIZE] = {0};    // Array fuer Liste der Subbaender, die bereits maximale Anzahl an Bits bekommen haben
+    short index = 0;                    // index des Subband dem gerade Bitszugewiesen wird
+    short SMR_over_0dB = 32;                // Fuer Anzahl der zu Codierten Teilbaender
 
 //    SMR_over_0dB=0;
-    compr_rate=(48*16.0)/bitrate;
-    cb=(12*32*16.0)/compr_rate;
+    compr_rate = (48*16.0)/bitrate;
+    cb = (12*32*16.0)/compr_rate;
     // Berechnung des MNR fuer gegebenes (minimales) SMR (Signal- zu Mithoerschwellenabstand)
     for(n_band=0;n_band < BANDSIZE;n_band++)
     {
 //        MNR[n_band]=MIN_POWER;    // init to min power
-        BSCF[n_band]=0;            // init 0 Bits
-        BSPL[n_band]=0;            // init 0 Bits
-        Bit_done_List[n_band]=MORE_BITS_POSSIBLE;// init 0, da fuer alle Teilbnder noch Bits zugewiesen werden knnen/mssen
+        BSCF[n_band] = 0;            // init 0 Bits
+        BSPL[n_band] = 0;            // init 0 Bits
+        Bit_done_List[n_band] = MORE_BITS_POSSIBLE;// init 0, da fuer alle Teilbnder noch Bits zugewiesen werden knnen/mssen
         // zunchst werden 0 Bit zugewiesen -> snr=0
-        snr_values[n_band]=SNR[0];        // init to lowest value of SNR ISO Tabelle
+        snr_values[n_band] = SNR[0];        // init to lowest value of SNR ISO Tabelle
 
 //        SMR_over_0dB++;        // increment Anzahl der relevanten Teilbnder (ber 0 dB)
 //        if (SMR[n_band] > 0){    // SMR > 0 -> Wenn berhaupt Bits im Subband n_band zugewiesen werden mssen
@@ -62,63 +62,63 @@ void bit_alloc(int bitrate)
 //                if( snr_values[n_band] > SNR[n_snr]-SMR[n_band] && SMR[n_band]-SNR[n_snr] >= 0 )//SNR[n_snr]-SMR[n_band] >= 0 )//
 //                    snr_values[n_band]=SNR[n_snr];    // bernimm SNR
 //            }
-            MNR[n_band]=snr_values[n_band]-SMR[n_band];    // Berechne MNR
+            MNR[n_band] = snr_values[n_band] - SMR[n_band];    // Berechne MNR
 //        }
     }
 
     // Berechne solange noch Bits verfgbar sind
     // oder maximale Bitanzahl pro Subband erreicht (also maximiere MNR)
-    bitleng=ancillary_data;    // init mit Bitanzahl fr Zusatzinfos
+    bitleng = ancillary_data;    // init mit Bitanzahl fr Zusatzinfos
     adb = cb - bitleng;        // init verfgbare Bits adb
     while( ((adb-30)) >= 0 && Bit_done_List_index < SMR_over_0dB && MNRmin != NO_MIN_MNR_AVAILABLE)
     {
         /* 1. Bestimmung des Teilbandes mit dem kleinsten MNR ungleich MIN_POWER */
-        MNRmin=NO_MIN_MNR_AVAILABLE;    // init auf hohen Wert
+        MNRmin = NO_MIN_MNR_AVAILABLE;    // init auf hohen Wert
         for(n_band=0;n_band < BANDSIZE;n_band++)
         {
             //if(MNR[n_band] < MNRmin && MNR[n_band] > MIN_POWER && Bit_done_List[n_band] == MORE_BITS_POSSIBLE){
             if(MNR[n_band] < MNRmin && Bit_done_List[n_band] == MORE_BITS_POSSIBLE)
             {
-                    MNRmin=MNR[n_band];    // minimales MNR aller Subbnder (grer 0 dB)
-                    index=n_band;        // index des Subband mit minimalen MNR
+                    MNRmin = MNR[n_band];    // minimales MNR aller Subbnder (grer 0 dB)
+                    index = n_band;        // index des Subband mit minimalen MNR
             }
         }
         /* 2. Erhhung der Bitanzahl fr dieses Teilband */
-        if(BSCF[index]==0)
+        if(BSCF[index] == 0)
         {    // wenn Subband das erste mal min MNR hat
-            BSCF[index]=6;    // einmalig Zuweisung 6 Bit fr Scalfactor (SCF)
-            BSPL[index]=Bit_leng[BSPL[index]+1];    // erhhe Bitanzahl fr Teilband-Samples
+            BSCF[index] = 6;    // einmalig Zuweisung 6 Bit fr Scalfactor (SCF)
+            BSPL[index] = Bit_leng[BSPL[index]+1];    // erhhe Bitanzahl fr Teilband-Samples
         }
         else
         {                // hier nur bei mehrmaligen min MNR des Subbands
             if(BSPL[index] >= 15)    // maximale Bitanzahl bereits erreicht
-                Bit_done_List[index]=MAX_BITS_ALLOC;//MNR[index];  // nehme diesen Index in verbotene Liste auf
+                Bit_done_List[index] = MAX_BITS_ALLOC;//MNR[index];  // nehme diesen Index in verbotene Liste auf
             else if(Bit_done_List[index] == MORE_BITS_POSSIBLE) //if(length(find(Bit_done_List>0)) < length(find(MNR>0)))    // wenn noch Subbnder da, die Bits bekommen knnen
-                BSPL[index]=Bit_leng[BSPL[index]];    // erhhe auf nchste Bitanzahl im MPEG Standard -> Beachte Bitabstand [0,2,3,4,5], daher kein +1 im index ntig
+                BSPL[index] = Bit_leng[BSPL[index]];    // erhhe auf nchste Bitanzahl im MPEG Standard -> Beachte Bitabstand [0,2,3,4,5], daher kein +1 im index ntig
         }
 
         /* 3. Erneute Berechnung des MNR in diesem Teilband (index) */
         if(snr_values[index] >= SNR[14])
         {    // maximaler SNR aus ISO Tabelle durch Bitanzahl bereits erreicht
-            Bit_done_List[index]=MAX_BITS_ALLOC;//MNR[index];
+            Bit_done_List[index] = MAX_BITS_ALLOC;//MNR[index];
             // else wenn noch nicht alle MNR in Liste MNRmax aufgenommen
         }
         else if(Bit_done_List[index] == MORE_BITS_POSSIBLE)
         {//if(length(find(Bit_done_List>0)) < length(find(MNR>0)))    // wenn noch Subbnder da, die Bits bekommen knnen
-            n_snr=14;
+            n_snr = 14;
             while( snr_values[index] != SNR[n_snr] && n_snr > 0 )
             {    // Suche index des aktuellen snr_values[index] in SNR ISO Tabelle um einen Wert hher zu setzen
                 n_snr--;
             }
             snr_values[index] = SNR[n_snr+1];    // setzte einen SNR Wert hher
-            MNR[index]=snr_values[index]-SMR[index];    // Berechne neuen MNR in diesem Teilband
+            MNR[index] = snr_values[index] - SMR[index];    // Berechne neuen MNR in diesem Teilband
         }
 
         /* 4. Berechnung der notwendigen Bits fr alle Teilbnder und Skalenfaktoren
            und Vergleich mit der maximalen Anzahl. Wenn die Bitanzahl kleiner als die
            Maximalanzahl ist, beginnt die nchste Iterationsschleife bei Schritt 1.   */
-        bitleng=ancillary_data;    // init mit Bitanzahl fr Bitzuweisung je Teilband und fr Zusatzinfos
-        Bit_done_List_index=0;    // init
+        bitleng = ancillary_data;    // init mit Bitanzahl fr Bitzuweisung je Teilband und fr Zusatzinfos
+        Bit_done_List_index = 0;    // init
         for(n_band=0;n_band < BANDSIZE;n_band++)
         {
             bitleng = bitleng + BSCF[n_band] + 12*BSPL[n_band];    // Summiere neu zugewiesene Bits auf - 12*BSPL[, da 12 Samples je Subband

@@ -73,13 +73,13 @@ float M[32][64],T[32][64], S[32][12]={0};
 float teta=0;
 float INT_y,INT_y1,INT_y2;    // current polyphase outputs
 float out_delay[64];          // polyphase component outputs
-int32_t y_rx[12][BANDSIZE];     // demultiplexed subbands
+float /*int32_t*/ y_rx[12][BANDSIZE];     // demultiplexed subbands
 float Out1[768];              // 64 polyphases * 12 samples=768
 float *pOut1;                 // pointer reference
 
 // Psychoacoustic Model variables 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-uint8_t FRAME1[448*sizeof(short)] = {0}; // Rcv Frame
+uint8_t FRAME1[16*1024*1024] = {0}; // Rcv Frame
 uint8_t *pFRAME1;              // pointer reference
 #else
 short FRAME1[448] = {0};        // Rcv Frame
