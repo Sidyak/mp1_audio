@@ -27,6 +27,6 @@ void calc_SMR(void)
 
     for(n_band=0; n_band < BANDSIZE; n_band++)
     {
-         SMR[n_band] = Ls[n_band]-LTmin[n_band];
+         SMR[n_band] = Ls[n_band] - LTmin[n_band];
     }
 }

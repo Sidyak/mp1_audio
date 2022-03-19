@@ -415,6 +415,6 @@ void calc_polyphase_synthese_fb(void)
             count_12_synthese++;
         }
 
-        buffer[i_12_32] = (short)(INT_y*32/**32767*32*/);
+        buffer[i_12_32] = (short)(INT_y*32*32767);
     }
 }

@@ -38,7 +38,8 @@ void sound_pressure(void)
             if(Xmax < magnitude_dB[band_k*8+ind])
                 Xmax = magnitude_dB[band_k*8+ind];
         }
-        // take greatest value
+        // calculate
+        // Ls(k)=max(Xmax,db(SCF(k)*32768)-10);  -> lt. [ISO]
         scf_32768 = scf[band_k]*32768;
         tmp_INT2 = (*(int*)&scf_32768);
         manti2 = (tmp_INT2 & 0x007fffff)/8388608.0;

@@ -59,7 +59,7 @@ extern uint8_t *pFRAME1;        // pointer reference
 extern short FRAME1[448];        // Rcv Frame
 extern short *pFRAME1;            // pointer reference
 #endif
-extern int32_t BSPL_rx[BANDSIZE];    // received bit values for subbands
+extern uint8_t BSPL_rx[BANDSIZE];    // received bit values for subbands
 extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data

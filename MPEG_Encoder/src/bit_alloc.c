@@ -25,7 +25,7 @@
 #define MORE_BITS_POSSIBLE 0
 #define NO_MIN_MNR_AVAILABLE 10000.0
 
-void bit_alloc(int bitrate)
+void bit_alloc(int bitrate, int fs, int bps)
 {
 //    short compr_rate;//=(48*16)/BITRATE;    // Kompressionsrate - darauf achten, dass diese immer ganzzahlig ist -> BITRATE= {48,96,128,192,256,384,768}
 //    short cb;//=(12*32*16)/compr_rate;  // Verfuegbare Anzahl an Bits fuer den Frame bei gegebener Bitrate
@@ -36,15 +36,15 @@ void bit_alloc(int bitrate)
     float bitleng = 0;                // aktuelle/momentane Anzahl an verwendeten Bits
     float snr_values[BANDSIZE];
     float MNRmin = 0;
-    short n_band = 0,n_snr = 0;        // Laufvar.
+    short n_band = 0, n_snr = 0;        // Laufvar.
     short Bit_done_List_index = 0;    // Counter fuer Teilbaender fuer die keine Bits mehr zugewiesen werden muessen/duerfen
     short Bit_done_List[BANDSIZE] = {0};    // Array fuer Liste der Subbaender, die bereits maximale Anzahl an Bits bekommen haben
     short index = 0;                    // index des Subband dem gerade Bitszugewiesen wird
     short SMR_over_0dB = 32;                // Fuer Anzahl der zu Codierten Teilbaender
 
 //    SMR_over_0dB=0;
-    compr_rate = (48*16.0)/bitrate;
-    cb = (12*32*16.0)/compr_rate;
+    compr_rate = (fs*bps)/(bitrate*1e3); // TODO: e.g. 48*16/196 = 3.9 -> 3, so using round?
+    cb = (12*BANDSIZE*bps)/compr_rate;
     // Berechnung des MNR fuer gegebenes (minimales) SMR (Signal- zu Mithoerschwellenabstand)
     for(n_band=0;n_band < BANDSIZE;n_band++)
     {

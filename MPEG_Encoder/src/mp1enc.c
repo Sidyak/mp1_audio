@@ -61,7 +61,7 @@ const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 short original[BUFLEN+sizeof(syncWords)] = {0};        // Original samples
 
 // FFT variables
-typedef struct Complex_tag {float re,im;}Complex;
+typedef struct Complex_tag {float re, im;} Complex;
 Complex W[NFFT/RADIX];        // twiddle constants
 Complex xFFT[NFFT];           // 512 FFT input
 Complex *pxFFT;               // pointer reference
@@ -241,7 +241,6 @@ short fft_done = 0, fb_done = 0; // busy flags
 short first_FRAME = 1;
 short BSCF_done = 0;
 short band_cnt = 0;
-short BSPL_rx[BANDSIZE];
 float scf_rx[BANDSIZE];
 short tot_bits = 0;
 short cnt_out=0,out_flag = 0;
@@ -305,7 +304,7 @@ void indiv_mask_th(void);
 void global_mask_th(void);
 void min_mask_th(void);
 void calc_SMR(void);
-void bit_alloc(int bitrate);
+void bit_alloc(int bitrate, int fs, int bps);
 int quantization_and_tx_frame(uint32_t byteOffset);
 
 void usage(const char* name)
@@ -336,6 +335,7 @@ int main(int argc, char *argv[])
 
     if (argc - optind > 2)
     {
+        // TODO: try float for bitrate instead of int
         bitrate = atoi(argv[optind + 2]);
     }
 
@@ -356,6 +356,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+//#define PLOT_DATA
+#ifndef PLOT_DATA
     input_size = data_length;
     input_buf = (uint8_t*) malloc(input_size);
     convert_buf = (int16_t*) malloc(input_size);
@@ -367,6 +369,20 @@ int main(int argc, char *argv[])
     }
 
     int read = wav_read_data(wavIn, input_buf, input_size);
+#else // for plot
+    data_length = BUFLEN * sizeof(short);
+    input_size = data_length;
+    input_buf = (uint8_t*) malloc(input_size);
+    convert_buf = (int16_t*) malloc(input_size);
+
+    int read = data_length;
+    /* define input signal for simulation    */
+    for(int ii = 0; ii < BUFLEN; ii++)
+    {
+        //convert_buf[ii]=(short)((0.24*cos(2*PI*ii/BUFLEN*65)+0.4*cos(2*PI*ii/BUFLEN*620)+0.24*cos(2*PI*ii/BUFLEN*320))*32700);
+        convert_buf[ii]=(short)((0.5*cos(2*PI*ii/BUFLEN*4)+0.125*cos(2*PI*ii/BUFLEN*12)+0.25*cos(2*PI*ii/BUFLEN*60))*32767);
+    }
+#endif
 
     out = fopen(outfile, "wb");
     if (!out) {
@@ -386,13 +402,13 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error: not enough samples provided by file. Must be at least %d\n", BUFLEN);
         return -1;
     }
-
+#ifndef PLOT_DATA // undef for plot
     for(unsigned int n = 0; n < numSamples; n++)
     {
         const uint8_t* in = &input_buf[2*n];
         convert_buf[n] = in[0] | (in[1] << 8);
     }
-
+#endif
     // create cos-mod-matrix 
     for(i_m=0;i_m<32;i_m++)
     {
@@ -464,7 +480,7 @@ int main(int argc, char *argv[])
         nFrame++;
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
         uint32_t outbuf[BUFLEN+sizeof(syncWords)];
-            
+
         table_Xmt = outbuf;
 #endif
         count_fb = 0;        // reset FFT counter
@@ -484,6 +500,7 @@ int main(int argc, char *argv[])
         calc_overlap();                /* create fft input vector with 128 overlapping samples */
         cfftr2_dit((float*)pxFFT, (float*)W, NFFT);    /* TI floating-point complex radix2 fft */
         bitrev((float*)pxFFT, iData, NFFT);    /* bit reverse W */
+
         alpha_beta_mag();            /* fast magnitude estimation */
         calc_mag_log();            /* fast log calculation for sound pressure */
 
@@ -496,7 +513,34 @@ int main(int argc, char *argv[])
         global_mask_th();    /* determine glabal masking threshold */
         min_mask_th();        /* determine minimum masking threshold for each subband */
         calc_SMR();            /* calc signal- to mask-ratio */
-        bit_alloc(bitrate);        /* dynamic bit allocation */
+        bit_alloc(bitrate, sample_rate, bits_per_sample);        /* dynamic bit allocation */
+
+#ifdef PLOT_DATA// for plot
+    printf("\n\ncompr_rate = %d, sample_rate = %d bits_per_sample = %d \n", compr_rate, sample_rate, bits_per_sample);    
+    printf("\n\nfft \n");
+    for(int ii=0; ii<256; ii++)
+    {
+        printf("%f " , magnitude_dB[ii] );
+    }
+
+    printf("\n\nLs \n");
+    for(int ii=0; ii<32; ii++)
+    {
+        printf("%f " , Ls[ii] );
+    }
+
+    printf("\n\nSMR \n");
+    for(int ii=0; ii<32; ii++)
+    {
+        printf("%f " , SMR[ii] );
+    }
+
+    printf("\n\nBSPL \n");
+    for(int ii=0; ii<32; ii++)
+    {
+        printf("%d " , BSPL[ii] );
+    }
+#endif
 
         // offset for syncWords is neccesary for the first frame
         uint32_t writeOffset = 0;

@@ -49,7 +49,7 @@ extern "C" {
 }
 #endif
 
-#define DEBUG
+//#define DEBUG
 
 #define BUFLEN          (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define PI              3.14159265358979
@@ -85,7 +85,7 @@ uint8_t *pFRAME1;              // pointer reference
 short FRAME1[448] = {0};        // Rcv Frame
 short *pFRAME1;                 // pointer reference
 #endif
-int32_t BSPL_rx[BANDSIZE];        // received bit values for subbands
+uint8_t BSPL_rx[BANDSIZE];        // received bit values for subbands
 float scf_rx[BANDSIZE];         // received bit values for scalefactors
 short tot_bits_rx;              // number of received bits
 short cnt_FRAME_read = 0;       // array index for received data
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    sample_rate = 44100;
+    sample_rate = 48000;//44100;
     bits_per_sample = 16;
     channels = 1;
     wavOut = wav_write_open(outfile, sample_rate, bits_per_sample, channels);

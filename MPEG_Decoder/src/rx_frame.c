@@ -21,10 +21,12 @@
 #include <stdio.h>
 #include "init.h"
 
+#include <assert.h>
+
 static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t *retBits);
 
 static uint32_t bitNdx = 0;
-static const uint32_t bufSize = 16*1024*1024;//BUFLEN*sizeof(short); 
+static const uint32_t bufSize = 16*1024*1024; // 16 MB max
 static uint32_t validBits = 0;  // valid bits for current frame
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 static uint32_t start_found = 0;
@@ -78,11 +80,13 @@ int32_t rx_frame(FILE *in_file)
         {
             return -1;
         }
-        BSPL_rx[n_band] = bspl ;
+        BSPL_rx[n_band] = (uint32_t)bspl & mask;
 #else    
         BSPL_rx[n_band] = pFRAME1[cnt_FRAME_read++];
 #endif
-//printf("BSPL[%d] = %d\t", n_band, BSPL_rx[n_band]);
+//printf("BSPL[%d] = %d\n", n_band, BSPL_rx[n_band]);
+if(BSPL_rx[n_band] > 15) assert(0);
+
         tot_bits_rx += 4;
         scf_rx[n_band] = 0;    // reset scf_rx
     }
@@ -102,7 +106,7 @@ int32_t rx_frame(FILE *in_file)
                 return -1;
             }
 //printf("scfIndex[%d] = %d\t", n_band ,scfIndex);
-            scf_rx[n_band] = table_scf[scfIndex];   // look into scf table
+            scf_rx[n_band] = table_scf[scfIndex & mask];   // look into scf table
 #else
             scf_rx[n_band] = table_scf[pFRAME1[cnt_FRAME_read++]];   // look into scf table
 #endif
@@ -128,7 +132,7 @@ int32_t rx_frame(FILE *in_file)
                     return -1;
                 }
                 if(y) printf("y[%d][%d] = %d\t", sample, n_band, y);
-                y_rx[sample][n_band] = ((float)(y ) * scf_rx[n_band]/(1<<(N-1)));
+                y_rx[sample][n_band] = ((float)(y & mask) * scf_rx[n_band]/(1<<(N-1)));
 #else
                 y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1) ) ;
 #endif
@@ -156,6 +160,7 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
         printf(" and got new %d valid bits\n", validBits);
         if(validBits <= 15 /*0*/)
         {
+            printf("INFO: running out of valid bits\n");
             return -1;
         }
     }

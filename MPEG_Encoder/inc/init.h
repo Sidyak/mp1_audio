@@ -52,9 +52,7 @@ extern short input[BUFLEN];            // for defined input (simulation)
 extern int noise;                    // for adding noise to input
 
 /***** FFT variables *****/
-#if 1
-typedef struct Complex_tag {float re,im;} Complex;
-#endif
+typedef struct Complex_tag {float re, im;} Complex;
 extern int16_t* convert_buf;
 extern Complex W[NFFT/RADIX];        // twiddle constants
 extern Complex xFFT[NFFT];            // 512 FFT input
@@ -103,7 +101,6 @@ extern short fft_done, fb_done;    // busy flags
 extern short first_FRAME;
 extern short BSCF_done;
 extern short band_cnt;
-extern short BSPL_rx[BANDSIZE];
 extern float scf_rx[BANDSIZE];
 extern short tot_bits;
 extern short cnt_out,out_flag;

@@ -30,7 +30,7 @@ void alpha_beta_mag(void)
 {
     float mag_max;
     short ifor;
-    mag_max=MIN_POWER;
+    mag_max = MIN_POWER;
 
     for(ifor=0; ifor < 256; ifor++)
     {
@@ -42,9 +42,9 @@ void alpha_beta_mag(void)
         else
             magnitude[ifor] = ((ALPHA * abs_quadrature + BETA * abs_inphase)/(256));
         if(magnitude[ifor] > mag_max)
-            mag_max=magnitude[ifor];
+            mag_max = magnitude[ifor];
     }
     // normalize to 96 dB -> 10^(96/20)=3981100000
     for (ifor=0; ifor<256; ifor++)
-        magnitude[ifor]=(magnitude[ifor]/mag_max)*3981100000;
+        magnitude[ifor] = (magnitude[ifor]/mag_max)*3981100000;
 }

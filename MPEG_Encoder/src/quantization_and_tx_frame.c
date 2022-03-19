@@ -136,12 +136,11 @@ int quantization_and_tx_frame(uint32_t byteOffset)
             {   // quantize if bits are available TODO: is floor neccessary here?
                 number = floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) + 0.5 );
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                if(number) printf("y[%d][%d] = %d with %d bits\t", sample, n_band, number, N);
                 writeBits(pFRAME1, number & ((1<<N)-1), N);
 #else
-//              if(number) printf("y[%d][%d] = %d with %d bits\t", sample, n_band, number, N);
                 pFRAME1[cnt_FRAME_fill++] = number;
 #endif
+//              if(number) printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, number, N);
                 total_bit_leng += N;
             }
         }

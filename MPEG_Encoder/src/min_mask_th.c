@@ -40,9 +40,9 @@ void min_mask_th(void)
         {
             if(LTg[Map[n_band*Subband_size+n_sample]-1] < band_min)
             {
-                band_min=LTg[Map[n_band*Subband_size+n_sample]-1];
+                band_min = LTg[Map[n_band*Subband_size+n_sample]-1];
             }
         }
-        LTmin[n_band]=band_min;
+        LTmin[n_band] = band_min;
     }
 }

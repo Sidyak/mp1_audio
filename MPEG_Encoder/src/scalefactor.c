@@ -24,7 +24,7 @@
 
 void scalefactor(void)
 {
-    float s_band_max,Sabs;
+    float s_band_max, Sabs;
     short table_len = 63, ji, ind, sample;
 
     // take maximum of 12 samples in band 'ind' and set as minimum

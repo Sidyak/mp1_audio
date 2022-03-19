@@ -30,14 +30,14 @@ int calc_polyphase_fb(int16_t *input, int channels)
         // Read audio inputs
         if(channels == 1)
         {
-            inL = (float)input[i_12_32];
+            inL = (float)input[i_12_32]/32767.0;
             inR = inL;
         }
         else if(channels == 2)
         {
             // interleaved left right channel
-            inL = (float)input[i_12_32*2];
-            inR = (float)input[i_12_32*2+1];
+            inL = (float)input[i_12_32*2]/32767.0;
+            inR = (float)input[i_12_32*2+1]/32767.0;
         }
         else
         {
