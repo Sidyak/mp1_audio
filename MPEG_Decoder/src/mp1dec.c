@@ -116,7 +116,8 @@ int main(int argc, char *argv[])
     int input_size;
     uint8_t* input_buf;
     int16_t* convert_buf;
-    
+    int32_t sample_cnt = 0;
+
     if (argc - optind < 2)
     {
         fprintf(stderr, "Error: not enough parameter provided\n");
@@ -238,11 +239,11 @@ int main(int argc, char *argv[])
         {
             int32_t bitsReadDone;
             /* Receive data and demultiplex 384 subband samples */
-            
+
             bitsReadDone = rx_frame(in);
             if(bitsReadDone < 0)
             {
-                printf("done decoding\n");
+                printf("\ndone decoding\n");
                 break;
             }
 #ifdef DEBUG
@@ -267,6 +268,7 @@ int main(int argc, char *argv[])
                     wav_write_data(wavOut, (unsigned char*)&oL, 2);
                     //wav_write_data(wavOut, (unsigned char*)&oR, 2);
                 }
+                sample_cnt += BUFLEN;
             }
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
             else
@@ -277,7 +279,7 @@ int main(int argc, char *argv[])
 #endif
             nFrame++;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            printf("\r[%d]", nFrame);
+            printf("\r[%d|%d]", nFrame, sample_cnt);
 #else
             printf("\r[%d|%d]", nFrame, readBytes);
 #endif
