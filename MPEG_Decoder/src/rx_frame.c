@@ -120,10 +120,11 @@ int32_t rx_frame(FILE *in_file)
     // read max. 12*32 = 384 samples
     for(sample=0; sample < 12; sample++)
     {
-        for(n_band=0; n_band<BANDSIZE; n_band++)
+        // TODO: switch for loops for less computational complexity -> needs to be switched at decoder as well. what does the MPEG ISO do?
+        for(n_band=0; n_band < BANDSIZE; n_band++)
         {
             y_rx[sample][n_band] = 0; // init to 0
-            N = BSPL_rx[n_band]; // TODO: move out of for loop and swap for loops to improve performance
+            N = BSPL_rx[n_band];
             if(N > 0)
             {
                 tot_bits_rx += N;
@@ -137,7 +138,7 @@ int32_t rx_frame(FILE *in_file)
 
                 y_rx[sample][n_band] = (y * scf_rx[n_band]/(1<<(N-1)));
 #else
-                y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1) ) ;
+                y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1));
 #endif
             }
         }

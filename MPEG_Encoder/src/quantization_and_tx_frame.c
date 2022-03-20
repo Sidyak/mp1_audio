@@ -122,7 +122,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
     // following frame positions own the bits of quantized subbands
     for(sample=0; sample < 12; sample++)
     {
-// TODO: switch for loops for less computational complexity
+        // TODO: switch for loops for less computational complexity -> needs to be switched at decoder as well. what does the MPEG ISO do? 
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
             N = BSPL[n_band];   // determine number of required bits in subband
