@@ -19,6 +19,8 @@
 // and limitations under the License.
 //----------------------------------------------------------------------------
 
+#include <stdio.h>
+#include <assert.h>
 #include "init.h"
 
 void calc_polyphase_synthese_fb(void)
@@ -415,6 +417,13 @@ void calc_polyphase_synthese_fb(void)
             count_12_synthese++;
         }
 
+#if 1
+        if(INT_y > 1.0)
+        {
+            printf("ERROR: INT_y = %f\n", INT_y);
+            assert(INT_y <= 1.0);
+        }
+#endif
         buffer[i_12_32] = (short)(INT_y*32*32767);
     }
 }

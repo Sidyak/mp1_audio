@@ -75,7 +75,7 @@ int32_t rx_frame(FILE *in_file)
     {
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
         int32_t bspl;
-        const int32_t mask = (1<<4)-1;
+        const uint32_t mask = (1<<4)-1;
         if(readBits(in_file, pFRAME1, 4, &bspl))
         {
             return -1;
@@ -85,7 +85,6 @@ int32_t rx_frame(FILE *in_file)
         BSPL_rx[n_band] = pFRAME1[cnt_FRAME_read++];
 #endif
 //printf("BSPL[%d] = %d\n", n_band, BSPL_rx[n_band]);
-if(BSPL_rx[n_band] > 15) assert(0);
 
         tot_bits_rx += 4;
         scf_rx[n_band] = 0;    // reset scf_rx
@@ -100,7 +99,7 @@ if(BSPL_rx[n_band] > 15) assert(0);
             // read the index of the (6 bit) scale factor
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
             int32_t scfIndex;
-            const int32_t mask = (1<<6)-1;
+            const uint32_t mask = (1<<6)-1;
             if(readBits(in_file, pFRAME1, 6, &scfIndex))
             {
                 return -1;
@@ -126,20 +125,23 @@ if(BSPL_rx[n_band] > 15) assert(0);
                 tot_bits_rx += N;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
                 int32_t y;
-                const int32_t mask = (1<<N)-1;
+                const uint32_t mask = (1<<N)-1;
                 if(readBits(in_file, pFRAME1, N, &y))
                 {
                     return -1;
                 }
-                if(y) printf("y[%d][%d] = %d\t", sample, n_band, y);
-                y_rx[sample][n_band] = ((float)(y & mask) * scf_rx[n_band]/(1<<(N-1)));
+//                if(y) printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, y, N);
+// TODO: sign sometimes switches -> problem was: e.g. an 8 with 4 bits signed is -8. 
+//       round down instead of round up fixed the issue:
+//       floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) /*+ 0.5*/ ); 
+                y_rx[sample][n_band] = (y * scf_rx[n_band]/(1<<(N-1)));
 #else
                 y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1) ) ;
 #endif
             }
         }
     }
-
+//printf("\n");
     return (tot_bits_rx);
 }
 

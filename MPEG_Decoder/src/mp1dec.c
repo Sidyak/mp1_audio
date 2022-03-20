@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 
                     // TODO: fix for stereo
                     int16_t oL = (int16_t)buffer[i_m];
-                    int16_t oR = (int16_t)buffer[i_m];
+                    //int16_t oR = (int16_t)buffer[i_m];
                     wav_write_data(wavOut, (unsigned char*)&oL, 2);
                     //wav_write_data(wavOut, (unsigned char*)&oR, 2);
                 }
@@ -279,9 +279,9 @@ int main(int argc, char *argv[])
 #endif
             nFrame++;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            printf("\r[%d]", nFrame);
+            //printf("\r[%d]", nFrame);
 #else
-            printf("\r[%d|%d]", nFrame, readBytes);
+            //printf("\r[%d|%d]", nFrame, readBytes);
 #endif
         }
     } // end while(1)

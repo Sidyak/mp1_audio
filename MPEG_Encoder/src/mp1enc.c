@@ -599,7 +599,7 @@ int main(int argc, char *argv[])
 #endif
         samples_offset += BUFLEN*channels;
 
-        printf("\r[%d|%d]", nFrame, samples_offset);
+        //printf("\r[%d|%d]", nFrame, samples_offset);
 
         if((numSamples-samples_offset) < BUFLEN*channels)
         {

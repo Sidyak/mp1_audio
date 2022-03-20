@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
 #include "init.h"
 
 #define CACHE_BITS  32
@@ -50,7 +51,7 @@ const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 int quantization_and_tx_frame(uint32_t byteOffset)
 {
     uint8_t n_band, scf_ind, sample, N;
-    short number;
+    int16_t number;
 
     uint32_t total_bit_leng = 0;    // total bits planed to use in current frame
     cnt_FRAME_fill = 4;    // first data starts right behind the preamble (frame sync sequence of 4*16 bit)
@@ -127,25 +128,35 @@ int quantization_and_tx_frame(uint32_t byteOffset)
 // TODO: switch for loops for less computational complexity
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
-// TODO: N' is sometimes less than required, e.g. write -512 with 2 bits. Fix bit alloc!
             N = BSPL[n_band];   // determine number of required bits in subband
 #ifdef DEBUG
             printf("%d bits used in subband %d\n", N, n_band);
 #endif
             if(N > 0)
             {   // quantize if bits are available TODO: is floor neccessary here?
-                number = floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) + 0.5 );
+                number = (int16_t)floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) /*+ 0.5*/ );
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                writeBits(pFRAME1, number & ((1<<N)-1), N);
+                writeBits(pFRAME1, (number & ((1<<N)-1)), N);
 #else
                 pFRAME1[cnt_FRAME_fill++] = number;
 #endif
-//              if(number) printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, number, N);
+#if 0
+                if(number) printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, number, N);
+#else
+                
+                int32_t maxPow2Signed = 1<<(N-1);
+                if (number > maxPow2Signed)
+                {
+                    printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, number, N);
+                    assert(0);
+                }
+#endif
                 total_bit_leng += N;
             }
         }
     }
 //printf("validBits = %d, total_bit_leng = %d\n", validBits-validBitsPrev, total_bit_leng);
+//printf("\n");
     return validBits;
 }
 
