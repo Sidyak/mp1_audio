@@ -238,12 +238,10 @@ int main(int argc, char *argv[])
         {
             int32_t bitsReadDone;
             /* Receive data and demultiplex 384 subband samples */
-            // TODO: pass file pointer to read from
+            
             bitsReadDone = rx_frame(in);
             if(bitsReadDone < 0)
             {
-                //fprintf(stderr, "ERROR: something went wrong while rx frame\n");
-                //return -1;
                 printf("done decoding\n");
                 break;
             }
@@ -279,9 +277,9 @@ int main(int argc, char *argv[])
 #endif
             nFrame++;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            //printf("\r[%d]", nFrame);
+            printf("\r[%d]", nFrame);
 #else
-            //printf("\r[%d|%d]", nFrame, readBytes);
+            printf("\r[%d|%d]", nFrame, readBytes);
 #endif
         }
     } // end while(1)

@@ -20,10 +20,13 @@
 // and limitations under the License.
 //----------------------------------------------------------------------------
 
-#include <stdio.h>
 #include <math.h>
-#include <assert.h>
 #include "init.h"
+
+#ifdef DEBUG
+#include <stdio.h>
+#include <assert.h>
+#endif
 
 #define CACHE_BITS  32
 
@@ -58,35 +61,30 @@ int quantization_and_tx_frame(uint32_t byteOffset)
 
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     const uint32_t validBitsPrev = validBits;
-#if 0
-    bitsInCache = 0;
-    cacheWord = 0;
-    bitNdx = 0;
-    validBits = 0;  // valid bits for current frame
-#endif
 
     if(byteOffset != 0)
     {
+#ifdef DEBUG
         printf("write syncwords: 0x%x 0x%x\n", syncWords[0], syncWords[1]);
-        //writeBits(pFRAME1, syncWords[1], 32);
+#endif
         writeBits(pFRAME1, syncWords[0]>>28, 4);
         writeBits(pFRAME1, syncWords[0]&((1<<28)-1), 28);
+#ifdef DEBUG
         printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
-        //writeBits(pFRAME1, syncWords[1], 32);
+#endif
         writeBits(pFRAME1, syncWords[1]>>26, 6);
         writeBits(pFRAME1, syncWords[1]&((1<<26)-1), 26);
         total_bit_leng += 2*32;
+#ifdef DEBUG
         printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
+#endif
     }
-    //pFRAME1 += byteOffset;
 #endif
 
     // first 32 frame positions are the number of bits for each subband
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
     {
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-//printf("BSPL[%d] = %d\t", n_band, BSPL[n_band]);
-//printf("BSPL[%d] = %d\t", n_band+1, BSPL[n_band+1]);
         writeBits(pFRAME1, BSPL[n_band] & 0xF, 4);
         total_bit_leng += 4;
         writeBits(pFRAME1, BSPL[n_band+1] & 0xF, 4);
@@ -111,8 +109,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
             {
                 scf_ind--;
             }
-            
-//printf("scfIndex[%d] = %d\t", n_band ,scf_ind);
+
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
             writeBits(pFRAME1, scf_ind & 0x3F, 6);
 #else
@@ -140,9 +137,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
 #else
                 pFRAME1[cnt_FRAME_fill++] = number;
 #endif
-#if 0
-                if(number) printf("y[%d][%d] = %d (%d bits)\t", sample, n_band, number, N);
-#else
+#ifdef DEBUG
                 
                 int32_t maxPow2Signed = 1<<(N-1);
                 if (number > maxPow2Signed)
@@ -155,8 +150,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
             }
         }
     }
-//printf("validBits = %d, total_bit_leng = %d\n", validBits-validBitsPrev, total_bit_leng);
-//printf("\n");
+    
     return validBits;
 }
 
@@ -178,10 +172,8 @@ uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits)
         // Avoid shift left by 32 positions
         uint32_t cW = (missing_bits == 32) ? 0 : (cacheWord << missing_bits);
         cW |= (value >> (remaining_bits));
-//printf("cW = 0x%x\n", cW);
-        putBits(pBitBuf, cW, 32);
 
-        //pBitBuf += 4; // move to next 32 bits
+        putBits(pBitBuf, cW, 32);
         
         cacheWord = value;
         bitsInCache = remaining_bits;
@@ -213,31 +205,17 @@ void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits)
         uint32_t mask = ~((bitMask[numberOfBits] << (32 - numberOfBits)) >> bitOffset);
 
         // read all 4 bytes from buffer and create a 32-bit cache
-#if 1
         uint32_t cache = (((uint32_t)pBitBuf[byteOffset0]) << 24) |
                     (((uint32_t)pBitBuf[byteOffset1]) << 16) |
                     (((uint32_t)pBitBuf[byteOffset2]) << 8) |
                     (((uint32_t)pBitBuf[byteOffset3]) << 0);
-#else
-        uint32_t cache = (((uint32_t)pBitBuf[byteOffset0]) << 0) |
-                    (((uint32_t)pBitBuf[byteOffset1]) << 8) |
-                    (((uint32_t)pBitBuf[byteOffset2]) << 16) |
-                    (((uint32_t)pBitBuf[byteOffset3]) << 24);
-#endif
 
         cache = (cache & mask) | tmp;
-//        printf("cache = 0x%x\n", cache );
-#if 1
+
         pBitBuf[byteOffset0] = (uint8_t)(cache >> 24);
         pBitBuf[byteOffset1] = (uint8_t)(cache >> 16);
         pBitBuf[byteOffset2] = (uint8_t)(cache >> 8);
         pBitBuf[byteOffset3] = (uint8_t)(cache >> 0);
-#else
-        pBitBuf[byteOffset0] = (uint8_t)(cache >> 0);
-        pBitBuf[byteOffset1] = (uint8_t)(cache >> 8);
-        pBitBuf[byteOffset2] = (uint8_t)(cache >> 16);
-        pBitBuf[byteOffset3] = (uint8_t)(cache >> 24);
-#endif
 
         if ((bitOffset + numberOfBits) > 32)
         {
