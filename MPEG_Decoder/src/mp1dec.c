@@ -59,9 +59,8 @@ extern "C" {
 
 const uint32_t syncWords[2] = {0xAAAACCCC, 0xF0F0AAAA};
 
-unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
-unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
-short direction=-1;                // EDMA Interrupt Rcv=0, Xmt=1, default=-1
+unsigned int table_Rcv[BUFLEN];    // Rcv buffer
+short direction=-1;                // Interrupt Rcv=0, Xmt=1, default=-1
 short cnt_samp=0;
 short count_fb=0, count=0, count_12=0, cnt_out=0, count_12_synthese=0;    // counter for filterbank and polayphase rotating switch
 
@@ -89,7 +88,7 @@ uint8_t BSPL_rx[BANDSIZE];        // received bit values for subbands
 float scf_rx[BANDSIZE];         // received bit values for scalefactors
 short tot_bits_rx;              // number of received bits
 short cnt_FRAME_read = 0;       // array index for received data
-short buffer[BUFLEN] = {0};     // McBSP buffer
+short buffer[BUFLEN] = {0};     // buffer
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
 short start_frame_offset = 0;   // start sequence to data offset
 short start_found = 0;          // flag for correct star sequence found
@@ -260,8 +259,6 @@ int main(int argc, char *argv[])
             {
                 for(i_m=0; i_m<BUFLEN; i_m++)
                 {
-                    //table_Xmt[i_m] = ((int32_t)buffer[i_m]<<16) & (int32_t)buffer[i_m];
-
                     // TODO: fix for stereo
                     int16_t oL = (int16_t)buffer[i_m];
                     //int16_t oR = (int16_t)buffer[i_m];
@@ -292,13 +289,12 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-/* variables initialization for Xmt and Rcv */
+// variables initialization
 void init_table(void)
 {
     short ind=0;
     for(ind=0; ind < BUFLEN; ind++)
     {
-        table_Xmt[ind] = 0;
         table_Rcv[ind] = 0;
         buffer[ind] = 0;
     }

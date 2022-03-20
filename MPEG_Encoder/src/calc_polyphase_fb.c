@@ -45,7 +45,7 @@ int calc_polyphase_fb(int16_t *input, int channels)
         }
 
         inL = (inL+inR)/2;            // MS-Signal: M=(L+R)/2 S=(L-R)/2
-        original[i_12_32]=(short)(inL*32767);
+
 #ifdef DEBUG
         printf("%d\n",i_12_32);
 #endif

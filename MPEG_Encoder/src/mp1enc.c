@@ -57,8 +57,6 @@ extern "C" {
 #define BANDSIZE 32  // 32 filter subbands
 
 const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
-//unsigned int table_Xmt[BUFLEN+sizeof(syncWords)];    // buffer
-short original[BUFLEN+sizeof(syncWords)] = {0};        // Original samples
 
 // FFT variables
 typedef struct Complex_tag {float re, im;} Complex;

@@ -33,9 +33,7 @@
 #define BUFLEN      (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define BANDSIZE     32
 
-extern unsigned int table_Xmt[BUFLEN];    // EDMA Xmt buffer
-extern unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
-extern short direction;                // EDMA Interrupt Rcv=0, Xmt=1, default=-1
+extern unsigned int table_Rcv[BUFLEN];    // Rcv buffer
 extern short cnt_samp;
 extern short count_fb, count, count_12, cnt_out, count_12_synthese;    // counter for filterbank and polayphase rotating switch
 
@@ -64,7 +62,7 @@ extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data
 extern short start_decoding;        // start decoding flag
-extern short buffer[BUFLEN];    // McBSP buffer
+extern short buffer[BUFLEN];    // buffer
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
 extern short start_frame_offset;    // start sequence to data offset
 extern short start_found;        // flag for correct star sequence found

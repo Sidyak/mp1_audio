@@ -43,10 +43,7 @@
 #define NTONAL 2
 #define MIN_POWER -100
 
-extern unsigned int *table_Xmt;//[BUFLEN];    // EDMA Xmt buffer
-extern unsigned int table_Rcv[BUFLEN];    // EDMA Rcv buffer
-extern short original[BUFLEN];        // Original samples
-extern short direction;                // EDMA Interrupt Rcv=0, Xmt=1, default=-1
+extern unsigned int *table_Xmt;    // Xmt buffer
 
 extern short input[BUFLEN];            // for defined input (simulation)
 extern int noise;                    // for adding noise to input
