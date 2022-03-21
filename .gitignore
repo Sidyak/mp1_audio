@@ -5,6 +5,7 @@
 *.lib
 bin/
 obj/
+test/
 
 .vs/
 .vscode/
