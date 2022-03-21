@@ -30,7 +30,7 @@ void bit_alloc(int bitrate, int fs, int bps)
 //    short compr_rate;//=(48*16)/BITRATE;    // Kompressionsrate - darauf achten, dass diese immer ganzzahlig ist -> BITRATE= {48,96,128,192,256,384,768}
 //    short cb;//=(12*32*16)/compr_rate;  // Verfuegbare Anzahl an Bits fuer den Frame bei gegebener Bitrate
     float bbal = 128;                    // Anzahl an Bits, die fuer die Bitzuweisung benoetigt werden
-    float banc = 0;                      // Anzahl an Bits, die fuer die Zusatzinformationen benoetigt werden
+    float banc = 32;                      // Anzahl an Bits, die fuer die Zusatzinformationen benoetigt werden (adding header size)
     float ancillary_data=bbal+banc;    // Bitanzahl fuer Zusatzinformation
     float adb;    // Anzahl an Bits, die fuer Samples und SCF verfuegbar sind
     float bitleng = 0;                // aktuelle/momentane Anzahl an verwendeten Bits

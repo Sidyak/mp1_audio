@@ -300,7 +300,7 @@ void global_mask_th(void);
 void min_mask_th(void);
 void calc_SMR(void);
 void bit_alloc(int bitrate, int fs, int bps);
-int quantization_and_tx_frame(uint32_t byteOffset);
+int quantization_and_tx_frame(uint32_t bitrate);
 
 void usage(const char* name)
 {
@@ -542,15 +542,16 @@ int main(int argc, char *argv[])
     }
 #endif
 
+#if 0 // not used anymore
         // offset for syncWords is neccesary for the first frame
         uint32_t writeOffset = 0;
         if(nFrame == 1)
         {
             writeOffset = sizeof(syncWords);
         }
-
+#endif
         /* QUANTIZE SUBBAND SAMPLES*/
-        valid_bits = quantization_and_tx_frame(writeOffset);    /* quantize 32*12 subband samples */
+        valid_bits = quantization_and_tx_frame(bitrate);    /* quantize 32*12 subband samples */
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 
         uint32_t residual_bits = valid_bits % 8; 

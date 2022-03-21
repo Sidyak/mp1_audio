@@ -46,9 +46,6 @@ int calc_polyphase_fb(int16_t *input, int channels)
 
         inL = (inL+inR)/2;            // MS-Signal: M=(L+R)/2 S=(L-R)/2
 
-#ifdef DEBUG
-        printf("%d\n",i_12_32);
-#endif
         pWork_fft[BUFLEN-1-i_12_32] = inL;    // FFT input buffer
         //----------------------------------  sample 0 ---------------------------------
             if (count_poly == 0) {

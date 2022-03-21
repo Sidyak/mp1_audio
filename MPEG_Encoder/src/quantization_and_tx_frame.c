@@ -25,8 +25,8 @@
 
 #ifdef DEBUG
 #include <stdio.h>
-#include <assert.h>
 #endif
+#include <assert.h>
 
 #define CACHE_BITS  32
 
@@ -51,7 +51,7 @@ static uint32_t validBits = 0;  // valid bits for current frame
 static uint32_t bufSize = 16*1024*1024;    // needs to be 2^x 
 const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
-int quantization_and_tx_frame(uint32_t byteOffset)
+int quantization_and_tx_frame(uint32_t bitrate)
 {
     uint8_t n_band, scf_ind, sample, N;
     int16_t number;
@@ -62,6 +62,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     const uint32_t validBitsPrev = validBits;
 
+#if 0
     if(byteOffset != 0)
     {
 #ifdef DEBUG
@@ -79,6 +80,79 @@ int quantization_and_tx_frame(uint32_t byteOffset)
         printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
 #endif
     }
+#else
+        // mpeg conform header is attached to each frame
+        union mpeg_header
+        {
+            struct
+            {
+#if 0
+                uint16_t sync :12;
+                uint8_t mpeg_version :1;
+                uint8_t layer :2;
+                uint8_t protection :1;     
+                uint8_t bitrate :4;
+                uint8_t samplerate :2;
+                uint8_t padding :1;
+                uint8_t priv :1;
+                uint8_t channel_mode :2;
+                uint8_t mode_ext :2;
+                uint8_t copyright :1;
+                uint8_t original :1;
+                uint8_t emphasis :2;
+#else
+                uint8_t emphasis :2;
+                uint8_t original :1;
+                uint8_t copyright :1;
+                uint8_t mode_ext :2;
+                uint8_t channel_mode :2;
+                uint8_t priv :1;
+                uint8_t padding :1;
+                uint8_t samplerate :2;
+                uint8_t bitrate :4;
+                uint8_t protection :1;
+                uint8_t layer :2;
+                uint8_t mpeg_version :1;
+                uint16_t sync :12;
+#endif
+            } mpeg_header_bitwise; // 32 bit
+
+            uint32_t mpeg_header_word;
+        };
+        
+        mpeg_header mph;
+        mph.mpeg_header_bitwise.sync = 0xFFF;       // sync
+        mph.mpeg_header_bitwise.mpeg_version = 1;   // 1:MPEG Audio
+        mph.mpeg_header_bitwise.layer = 3;          // 1:layer III, 2:layer II, 3:layer I
+        mph.mpeg_header_bitwise.protection = 1;     // no crc added
+        uint8_t idx;
+        switch(bitrate)
+        {
+            case 32 : idx = 1; break;
+            case 64 : idx = 2; break;
+            case 96 : idx = 3; break;
+            case 128 : idx = 4; break;
+            case 160 : idx = 5; break;
+            case 192 : idx = 6; break;
+            case 224 : idx = 7; break;
+            case 256 : idx = 8; break;
+            case 384 : idx = 12; break;
+            default : return -1;
+        }
+        mph.mpeg_header_bitwise.bitrate = idx;        // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
+        mph.mpeg_header_bitwise.samplerate = 1;     // 0:44.1, 1:48, 2:32 kHz
+        mph.mpeg_header_bitwise.padding = 0;        // no padding
+        mph.mpeg_header_bitwise.priv = 0;           // not private
+        mph.mpeg_header_bitwise.channel_mode = 3;   // 0:stereo, 1:joint stereo, 2:dual channel, 3:mono 
+        mph.mpeg_header_bitwise.mode_ext = 0;       // no extension
+        mph.mpeg_header_bitwise.copyright = 0;      // no copy
+        mph.mpeg_header_bitwise.original = 0;       // original
+        mph.mpeg_header_bitwise.emphasis = 0;       // no emphasis
+
+        assert(sizeof(mph) == 4);
+
+        writeBits(pFRAME1, mph.mpeg_header_word, 32);
+#endif
 #endif
 
     // first 32 frame positions are the number of bits for each subband
@@ -126,9 +200,7 @@ int quantization_and_tx_frame(uint32_t byteOffset)
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
             N = BSPL[n_band];   // determine number of required bits in subband
-#ifdef DEBUG
-            printf("%d bits used in subband %d\n", N, n_band);
-#endif
+
             if(N > 0)
             {   // quantize if bits are available TODO: is floor neccessary here?
                 number = (int16_t)floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) /*+ 0.5*/ );
