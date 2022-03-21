@@ -1,0 +1,10 @@
+*.o
+*.wav
+*.mp1
+*.bak
+*.lib
+bin/
+obj/
+
+.vs/
+.vscode/
