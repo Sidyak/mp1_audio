@@ -282,9 +282,6 @@ short cnt_=0;
 short cnt_samp=0;        // counter for 384 samples
 short count_INT=0, i_m=0, k_m=0;
 float inL=0,inR=0;       // current left and right sample
-#if 0
-void init_table(void);
-#endif
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 int calc_polyphase_fb(int16_t *input, int channels);
 void calc_cos_mod(void);
@@ -351,6 +348,11 @@ int main(int argc, char *argv[])
     if (format != 1)
     {
         fprintf(stderr, "Unsupported WAV format %d\n", format);
+        return 1;
+    }
+    if (sample_rate != 48000)
+    {
+        fprintf(stderr, "sample rate %d Hz is currently not supported. Only 48000 Hz\n", sample_rate);
         return 1;
     }
 
@@ -565,27 +567,10 @@ int main(int argc, char *argv[])
         printf("write (%d) bits to output\n", valid_bits);
 #endif
 
-#if 0
-        printf("write (0x%x)\n", pFRAME1_write[0]);
-        printf("write (0x%x)\n", pFRAME1_write[1]);
-        printf("write (0x%x)\n", pFRAME1_write[2]);
-        printf("write (0x%x)\n", pFRAME1_write[3]);
-        printf("write (0x%x)\n", pFRAME1_write[4]);
-        printf("write (0x%x)\n", pFRAME1_write[5]);
-        printf("write (0x%x)\n", pFRAME1_write[6]);
-        printf("write (0x%x)\n", pFRAME1_write[7]);
-        return -1;
-#endif
         if(valid_bits/8 > (16*1024*1024))
         {
             printf("WARNING: you might want to check for buffer overflow\n");
         }
-#if 0
-        memcpy((void*)table_Xmt, (void*)pFRAME1_write, /*writeOffset+*/valid_bits/8);
-        fwrite(outbuf, 1, /*writeOffset+*/valid_bits/8, out);
-#endif
-        //pFRAME1_write += valid_bits/8;
-        //table_Xmt += valid_bits/8; // table_Xmt points to outbuf[384]
 #else
         // write data 
         for(i_m=0; i_m < BUFLEN; i_m++)
@@ -624,16 +609,3 @@ int main(int argc, char *argv[])
     return 0;
 
 }
-
-#if 0
-/* buffer initialization for Xmt and Rcv */
-void init_table(void)
-{
-    short ind=0;
-    // TODO: Use memset
-    for(ind=0;ind<BUFLEN;ind++)
-    {
-        table_Xmt[ind] = 0;
-    }
-}
-#endif

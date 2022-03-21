@@ -253,7 +253,6 @@ int main(int argc, char *argv[])
             count_12_synthese=0;
             calc_polyphase_synthese_fb();    // polyphase filterbank    
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
-            // TODO: start decoding and write to wav file here (before overwriting buffer in rx_frame)
             if(start_found == COMPRESSED)
 #endif
             {
