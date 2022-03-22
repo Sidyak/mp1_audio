@@ -10,6 +10,8 @@ https://reposit.haw-hamburg.de/bitstream/20.500.12738/7856/1/Masterarbeit_Kim_Ra
 # how to build
 use simple Makefile
 
+make clean; make
+
 # how to run
 ./MPEG_Encoder/bin/encoder <in.wav> <out.mp1> <bitrate (default 192)>
 
