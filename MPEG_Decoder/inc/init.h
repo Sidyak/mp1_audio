@@ -30,6 +30,7 @@
 #include <stdio.h>
 #endif
 
+#define MAX_CHANNEL 2
 #define BUFLEN      (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define BANDSIZE     32
 
@@ -62,7 +63,7 @@ extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data
 extern short start_decoding;        // start decoding flag
-extern short buffer[BUFLEN];    // buffer
+extern short buffer[MAX_CHANNEL*BUFLEN];    // buffer
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
 extern short start_frame_offset;    // start sequence to data offset
 extern short start_found;        // flag for correct star sequence found
@@ -74,13 +75,61 @@ extern float LTq_dB[102];
 extern float LTq[102];
 extern short LTq_f[102];
 extern float LTq_B[102];
-extern short Map[102];
+extern short Map[256];
 extern short CB_i[26];
 extern short CB_f[26];
 extern short Bit_leng[15];
 extern short No_steps[15];
 extern float SNR[15];
 extern float quantization_table[14][3];
+
+        // mpeg conform header is attached to each frame
+        union mpeg_header
+        {
+            struct
+            {
+#if 0
+                uint16_t sync :12;
+                uint8_t mpeg_version :1;
+                uint8_t layer :2;
+                uint8_t protection :1;     
+                uint8_t bitrate :4;
+                uint8_t samplerate :2;
+                uint8_t padding :1;
+                uint8_t priv :1;
+                uint8_t channel_mode :2;
+                uint8_t mode_ext :2;
+                uint8_t copyright :1;
+                uint8_t original :1;
+                uint8_t emphasis :2;
+#else
+                uint8_t emphasis :2;
+                uint8_t original :1;
+                uint8_t copyright :1;
+                uint8_t mode_ext :2;
+                uint8_t channel_mode :2;
+                uint8_t priv :1;
+                uint8_t padding :1;
+                uint8_t samplerate :2;
+                uint8_t bitrate :4;
+                uint8_t protection :1;
+                uint8_t layer :2;
+                uint8_t mpeg_version :1;
+                uint16_t sync :12;
+#endif
+            } __attribute__((__packed__)) mpeg_header_bitwise; // 32 bit
+
+            uint32_t mpeg_header_word;
+        };
+
+typedef mpeg_header MPEG_Header;
+
+typedef struct 
+{
+    MPEG_Header mph;
+    uint32_t sample_rate;
+    uint8_t channel;
+} Mp1Decoder;
 
 /*  Function Prototypes */
 extern float fir_filter(float delays[], float coe[], short N_delays, float x_n);

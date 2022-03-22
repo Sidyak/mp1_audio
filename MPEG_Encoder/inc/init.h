@@ -30,6 +30,7 @@
 #include <stdio.h>
 #endif
 
+#define MAX_CHANNEL 2
 #define BUFLEN (12*32) // buffer length: 12 samples and 32 subbands = 384
 #define NFFT 512    // fft length
 #define PI 3.14159265358979
@@ -146,7 +147,7 @@ extern float LTq_dB[102];
 extern float LTq[102];
 extern short LTq_f[102];
 extern float LTq_B[102];
-extern short Map[102];
+extern short Map[256];
 extern short CB_i[26];
 extern short CB_f[26];
 extern short Bit_leng[15];

@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "init.h"
 #include "analysis_coeffs_float.h"  // filterbank coef
 #include "mpeg_tables.h"            // mpeg-1 tables
 #include "wavwriter.h"
@@ -72,7 +73,7 @@ float M[32][64],T[32][64], S[32][12]={0};
 float teta=0;
 float INT_y,INT_y1,INT_y2;    // current polyphase outputs
 float out_delay[64];          // polyphase component outputs
-float /*int32_t*/ y_rx[12][BANDSIZE];     // demultiplexed subbands
+float /*int32_t*/ y_rx/*[MAX_CHANNEL]*/[12][BANDSIZE];     // demultiplexed subbands
 float Out1[768];              // 64 polyphases * 12 samples=768
 float *pOut1;                 // pointer reference
 
@@ -84,11 +85,11 @@ uint8_t *pFRAME1;              // pointer reference
 short FRAME1[448] = {0};        // Rcv Frame
 short *pFRAME1;                 // pointer reference
 #endif
-uint8_t BSPL_rx[BANDSIZE];        // received bit values for subbands
-float scf_rx[BANDSIZE];         // received bit values for scalefactors
+uint8_t BSPL_rx/*[MAX_CHANNEL]*/[BANDSIZE];        // received bit values for subbands
+float scf_rx/*[MAX_CHANNEL]*/[BANDSIZE];         // received bit values for scalefactors
 short tot_bits_rx;              // number of received bits
 short cnt_FRAME_read = 0;       // array index for received data
-short buffer[BUFLEN] = {0};     // buffer
+short buffer[MAX_CHANNEL*BUFLEN] = {0};     // buffer
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
 short start_frame_offset = 0;   // start sequence to data offset
 short start_found = 0;          // flag for correct star sequence found
@@ -98,7 +99,7 @@ void init_table(void);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 void calc_cos_mod_synthese(void);
 void calc_polyphase_synthese_fb(void);
-int32_t rx_frame(FILE *in);
+int32_t rx_frame(FILE *in, Mp1Decoder *mp1dec);
 
 void usage(const char* name)
 {
@@ -110,12 +111,15 @@ int main(int argc, char *argv[])
     const char *infile, *outfile;
     FILE *in;
     void *wavOut;
-    int format, sample_rate, channels, bits_per_sample;
+    int format, bits_per_sample;
     uint32_t data_length;
     int input_size;
     uint8_t* input_buf;
     int16_t* convert_buf;
     int32_t sample_cnt = 0;
+
+    Mp1Decoder *mp1dec;
+    mp1dec = (Mp1Decoder*) malloc(sizeof(Mp1Decoder));
 
     if (argc - optind < 2)
     {
@@ -130,17 +134,6 @@ int main(int argc, char *argv[])
     in = fopen(infile, "rb");
     if (!in) {
         perror(infile);
-        return 1;
-    }
-
-    sample_rate = 48000;//44100;
-    bits_per_sample = 16;
-    channels = 1;
-    wavOut = wav_write_open(outfile, sample_rate, bits_per_sample, channels);
-
-    if (!wavOut)
-    {
-        fprintf(stderr, "Unable to open wav file for writing %s\n", outfile);
         return 1;
     }
 
@@ -179,7 +172,7 @@ int main(int argc, char *argv[])
     while(1)
     {
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
-        int readBytes = fread(table_Rcv, 1, BUFLEN/**channels*/*sizeof(int32_t), in);
+        int readBytes = fread(table_Rcv, 1, BUFLEN*sizeof(int32_t), in);
         if(readBytes == 0)
         {
             printf("File seems to end\n");
@@ -239,7 +232,7 @@ int main(int argc, char *argv[])
             int32_t bitsReadDone;
             /* Receive data and demultiplex 384 subband samples */
 
-            bitsReadDone = rx_frame(in);
+            bitsReadDone = rx_frame(in, mp1dec);
             if(bitsReadDone < 0)
             {
                 printf("\ndone decoding\n");
@@ -251,18 +244,36 @@ int main(int argc, char *argv[])
             /* Synthesis FILTERBANK */
             calc_cos_mod_synthese();        // cosinus modulation
             count_12_synthese=0;
-            calc_polyphase_synthese_fb();    // polyphase filterbank    
+            calc_polyphase_synthese_fb();    // polyphase filterbank   
+
+            if(nFrame == 1)
+            {
+                bits_per_sample = 16;
+    
+                wavOut = wav_write_open(outfile, mp1dec->sample_rate, bits_per_sample, mp1dec->channel);
+
+                if (!wavOut)
+                {
+                    fprintf(stderr, "Unable to open wav file for writing %s\n", outfile);
+                    return 1;
+                }
+
+            }
+
 #ifndef FIX_FOR_REAL_BITRATE_REDUCTION
             if(start_found == COMPRESSED)
 #endif
             {
-                for(i_m=0; i_m<BUFLEN; i_m++)
+                for(i_m=0; i_m<BUFLEN; i_m+=mp1dec->channel)
                 {
-                    // TODO: fix for stereo
+                    // TODO: fix for stereo - need to add channel for BSPL, scalefactor and samples
                     int16_t oL = (int16_t)buffer[i_m];
-                    //int16_t oR = (int16_t)buffer[i_m];
                     wav_write_data(wavOut, (unsigned char*)&oL, 2);
-                    //wav_write_data(wavOut, (unsigned char*)&oR, 2);
+                    if(mp1dec->channel == 2)
+                    {
+                        int16_t oR = (int16_t)buffer[i_m+1];
+                        wav_write_data(wavOut, (unsigned char*)&oR, 2);
+                    }
                 }
                 sample_cnt += BUFLEN;
             }
@@ -273,6 +284,7 @@ int main(int argc, char *argv[])
                 break;
             }
 #endif
+
             nFrame++;
 #ifdef FIX_FOR_REAL_BITRATE_REDUCTION
             printf("\r[%d|%d]", nFrame, sample_cnt);
@@ -282,6 +294,7 @@ int main(int argc, char *argv[])
         }
     } // end while(1)
 
+    free(mp1dec);
     wav_write_close(wavOut);
     fclose(in);
 

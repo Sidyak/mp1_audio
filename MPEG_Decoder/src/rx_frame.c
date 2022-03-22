@@ -38,7 +38,7 @@ static uint32_t start_found = 0;
 #endif
 const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
-int32_t rx_frame(FILE *in_file)
+int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
 {
     short n_band, sample, N;
     tot_bits_rx = 0;
@@ -77,49 +77,9 @@ int32_t rx_frame(FILE *in_file)
         }
     }
 #else
-        // mpeg conform header is attached to each frame
-        union mpeg_header
-        {
-            struct
-            {
-#if 0
-                uint16_t sync :12;
-                uint8_t mpeg_version :1;
-                uint8_t layer :2;
-                uint8_t protection :1;     
-                uint8_t bitrate :4;
-                uint8_t samplerate :2;
-                uint8_t padding :1;
-                uint8_t priv :1;
-                uint8_t channel_mode :2;
-                uint8_t mode_ext :2;
-                uint8_t copyright :1;
-                uint8_t original :1;
-                uint8_t emphasis :2;
-#else
-                uint8_t emphasis :2;
-                uint8_t original :1;
-                uint8_t copyright :1;
-                uint8_t mode_ext :2;
-                uint8_t channel_mode :2;
-                uint8_t priv :1;
-                uint8_t padding :1;
-                uint8_t samplerate :2;
-                uint8_t bitrate :4;
-                uint8_t protection :1;
-                uint8_t layer :2;
-                uint8_t mpeg_version :1;
-                uint16_t sync :12;
-#endif
-            } __attribute__((__packed__)) mpeg_header_bitwise; // 32 bit
-
-            uint32_t mpeg_header_word;
-        };
-
-    mpeg_header mph;
 
     int syncFound = 0, timeout = 0;  
-    mph.mpeg_header_bitwise.sync = 0;
+    mp1dec->mph.mpeg_header_bitwise.sync = 0;
     while(syncFound == 0)
     {
         int32_t tmp;
@@ -128,31 +88,50 @@ int32_t rx_frame(FILE *in_file)
             return -1;
         }
         
-        mph.mpeg_header_bitwise.sync = (mph.mpeg_header_bitwise.sync>>1) | ((tmp & 0x1) << 11);
-        if(mph.mpeg_header_bitwise.sync == 0xFFF)
+        mp1dec->mph.mpeg_header_bitwise.sync = (mp1dec->mph.mpeg_header_bitwise.sync>>1) | ((tmp & 0x1) << 11);
+        if(mp1dec->mph.mpeg_header_bitwise.sync == 0xFFF)
         {
             timeout = 0;
             if(readBits(in_file, pFRAME1, 32-12, &tmp))
             {
                 return -1;
             }
-            mph.mpeg_header_word |= tmp;
+            mp1dec->mph.mpeg_header_word |= tmp;
 #ifdef DEBUG
             printf("Preamble/sync found\n");
-            printf("mph.mpeg_header_bitwise.sync = 0x%x\n", mph.mpeg_header_bitwise.sync);
-            printf("mph.mpeg_header_bitwise.mpeg_version = 0x%x\n", mph.mpeg_header_bitwise.mpeg_version);
-            printf("mph.mpeg_header_bitwise.layer = 0x%x\n", mph.mpeg_header_bitwise.layer);
-            printf("mph.mpeg_header_bitwise.protection = 0x%x\n", mph.mpeg_header_bitwise.protection);
-            printf("mph.mpeg_header_bitwise.bitrate = 0x%x\n", mph.mpeg_header_bitwise.bitrate);
-            printf("mph.mpeg_header_bitwise.samplerate = 0x%x\n", mph.mpeg_header_bitwise.samplerate);
-            printf("mph.mpeg_header_bitwise.padding = 0x%x\n", mph.mpeg_header_bitwise.padding);
-            printf("mph.mpeg_header_bitwise.priv = 0x%x\n", mph.mpeg_header_bitwise.priv);
-            printf("mph.mpeg_header_bitwise.channel_mode = 0x%x\n", mph.mpeg_header_bitwise.channel_mode);
-            printf("mph.mpeg_header_bitwise.mode_ext = 0x%x\n", mph.mpeg_header_bitwise.mode_ext);
-            printf("mph.mpeg_header_bitwise.copyright = 0x%x\n", mph.mpeg_header_bitwise.copyright);
-            printf("mph.mpeg_header_bitwise.original = 0x%x\n", mph.mpeg_header_bitwise.original);
-            printf("mph.mpeg_header_bitwise.emphasis = 0x%x\n", mph.mpeg_header_bitwise.emphasis);
+            printf("mp1dec->mph.mpeg_header_bitwise.sync = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.sync);
+            printf("mp1dec->mph.mpeg_header_bitwise.mpeg_version = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.mpeg_version);
+            printf("mp1dec->mph.mpeg_header_bitwise.layer = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.layer);
+            printf("mp1dec->mph.mpeg_header_bitwise.protection = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.protection);
+            printf("mp1dec->mph.mpeg_header_bitwise.bitrate = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.bitrate);
+            printf("mp1dec->mph.mpeg_header_bitwise.samplerate = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.samplerate);
+            printf("mp1dec->mph.mpeg_header_bitwise.padding = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.padding);
+            printf("mp1dec->mph.mpeg_header_bitwise.priv = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.priv);
+            printf("mp1dec->mph.mpeg_header_bitwise.channel_mode = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.channel_mode);
+            printf("mp1dec->mph.mpeg_header_bitwise.mode_ext = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.mode_ext);
+            printf("mp1dec->mph.mpeg_header_bitwise.copyright = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.copyright);
+            printf("mp1dec->mph.mpeg_header_bitwise.original = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.original);
+            printf("mp1dec->mph.mpeg_header_bitwise.emphasis = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.emphasis);
 #endif
+            switch(mp1dec->mph.mpeg_header_bitwise.channel_mode)
+            {
+                case 0 : mp1dec->channel = 2; break;
+                case 1 : mp1dec->channel = 2; break;
+                case 2 : mp1dec->channel = 2; break;
+                case 3 : mp1dec->channel = 1; break;
+                default : fprintf(stderr, "ERROR: could not find syncwords\n");
+                          return -1;
+            }
+            switch(mp1dec->mph.mpeg_header_bitwise.samplerate)
+            {
+                case 0 : mp1dec->sample_rate = 44100; break;
+                case 1 : mp1dec->sample_rate = 48000; break;
+                case 2 : mp1dec->sample_rate = 32000; break;
+                case 3 : // no break - falltrough
+                default : fprintf(stderr, "ERROR: could not find syncwords\n");
+                          return -1;
+            }
+
             syncFound = 1;
         }
         else
@@ -165,7 +144,7 @@ int32_t rx_frame(FILE *in_file)
         }
     }
 
-    if(mph.mpeg_header_bitwise.protection = 0)
+    if(mp1dec->mph.mpeg_header_bitwise.protection = 0)
     {
         // read crc
         int32_t crc;
