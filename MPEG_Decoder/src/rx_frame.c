@@ -203,9 +203,8 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
     }
 
     // read max. 12*32 = 384 samples
-    for(sample=0; sample < 12; sample++)
+    for(sample=0; sample < 12; sample++) // according to ISO, samples before bands
     {
-        // TODO: switch for loops for less computational complexity -> needs to be switched at decoder as well. what does the MPEG ISO do?
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
             y_rx[sample][n_band] = 0; // init to 0

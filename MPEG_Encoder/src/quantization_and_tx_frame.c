@@ -139,7 +139,8 @@ int quantization_and_tx_frame(uint32_t bitrate)
             case 384 : idx = 12; break;
             default : return -1;
         }
-        mph.mpeg_header_bitwise.bitrate = idx;        // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
+
+        mph.mpeg_header_bitwise.bitrate = idx;      // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
         mph.mpeg_header_bitwise.samplerate = 1;     // 0:44.1, 1:48, 2:32 kHz
         mph.mpeg_header_bitwise.padding = 0;        // no padding
         mph.mpeg_header_bitwise.priv = 0;           // not private
@@ -194,9 +195,8 @@ int quantization_and_tx_frame(uint32_t bitrate)
     }
 
     // following frame positions own the bits of quantized subbands
-    for(sample=0; sample < 12; sample++)
+    for(sample=0; sample < 12; sample++) // according to ISO, samples before bands
     {
-        // TODO: switch for loops for less computational complexity -> needs to be switched at decoder as well. what does the MPEG ISO do? 
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
             N = BSPL[n_band];   // determine number of required bits in subband
