@@ -27,7 +27,7 @@ void calc_cos_mod_synthese(Mp1Decoder *mp1dec)
     // do the cosine-modulation (multiply-accu or dot-product)
     for(tw_sam=0; tw_sam<12; tw_sam++)
     {
-        for(polyph=0; polyph < 64; polyph++)
+        for(polyph=0; polyph < 64; polyph+=mp1dec->channel)
         {
             pOut1[polyph+tw_sam*64]=0.0;
             for(band_i=0; band_i<BANDSIZE; band_i++)

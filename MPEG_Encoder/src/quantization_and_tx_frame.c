@@ -49,7 +49,6 @@ static uint32_t cacheWord = 0;
 static uint32_t bitNdx = 0;
 static uint32_t validBits = 0;  // valid bits for current frame 
 static uint32_t bufSize = 16*1024*1024;    // needs to be 2^x 
-const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
 int quantization_and_tx_frame(uint32_t bitrate)
 {

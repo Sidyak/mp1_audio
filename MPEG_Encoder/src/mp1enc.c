@@ -56,8 +56,6 @@ extern "C" {
 #define RADIX 2      // radix 2 fft
 #define BANDSIZE 32  // 32 filter subbands
 
-const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
-
 // FFT variables
 typedef struct Complex_tag {float re, im;} Complex;
 Complex W[NFFT/RADIX];        // twiddle constants

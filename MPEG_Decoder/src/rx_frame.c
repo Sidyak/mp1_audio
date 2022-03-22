@@ -33,8 +33,6 @@ static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numbe
 static uint32_t bitNdx = 0;
 static const uint32_t bufSize = 16*1024*1024; // 16 MB max
 static uint32_t validBits = 0;  // valid bits for current frame
-static uint32_t start_found = 0;
-const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
 int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
 {
@@ -86,6 +84,7 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
                 default : fprintf(stderr, "ERROR: could not find syncwords\n");
                           return -1;
             }
+            
             switch(mp1dec->mph.mpeg_header_bitwise.samplerate)
             {
                 case 0 : mp1dec->sample_rate = 44100; break;
