@@ -23,6 +23,8 @@
 #include <assert.h>
 #include "init.h"
 
+// TODO: for channel > 1 there are twice as much of fir filter necessary.
+//       simply try [ch] for out_delay, INT_y*, H_filt_320_delays and Ex and pOut1[count_12_synthese*64+0+ch]
 void calc_polyphase_synthese_fb(void)
 {
     short i_12_32 = 0;

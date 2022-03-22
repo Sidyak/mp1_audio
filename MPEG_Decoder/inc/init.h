@@ -24,7 +24,7 @@
 
 #include <stdint.h>
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -46,28 +46,19 @@ extern float M[32][64],T[32][64], S[32][12];
 extern float teta;
 extern float INT_y,INT_y1,INT_y2;    // current polyphase outputs
 extern float out_delay[64];        // polyphase component outputs
-extern float /*int32_t*/ y_rx[12][BANDSIZE];    // demultiplexed subbands
-extern float Out1[768];            // 64 polyphases * 12 samples=768
+extern float /*int32_t*/ y_rx[MAX_CHANNEL][12][BANDSIZE];    // demultiplexed subbands
+extern float Out1[MAX_CHANNEL*768];            // 64 polyphases * 12 samples=768
 extern float *pOut1;                // pointer reference
 
 /***** Psychoacoustic Model variables *****/
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 extern uint8_t FRAME1[16*1024*1024];
 extern uint8_t *pFRAME1;        // pointer reference
-#else
-extern short FRAME1[448];        // Rcv Frame
-extern short *pFRAME1;            // pointer reference
-#endif
-extern uint8_t BSPL_rx[BANDSIZE];    // received bit values for subbands
-extern float scf_rx[BANDSIZE];        // received bit values for scalefactors
+extern uint8_t BSPL_rx[MAX_CHANNEL][BANDSIZE];    // received bit values for subbands
+extern float scf_rx[MAX_CHANNEL][BANDSIZE];        // received bit values for scalefactors
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data
 extern short start_decoding;        // start decoding flag
 extern short buffer[MAX_CHANNEL*BUFLEN];    // buffer
-#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
-extern short start_frame_offset;    // start sequence to data offset
-extern short start_found;        // flag for correct star sequence found
-#endif
 
 /* from mpeg_tables.h */
 extern float table_scf[63];

@@ -59,117 +59,88 @@ int quantization_and_tx_frame(uint32_t bitrate)
     uint32_t total_bit_leng = 0;    // total bits planed to use in current frame
     cnt_FRAME_fill = 4;    // first data starts right behind the preamble (frame sync sequence of 4*16 bit)
 
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     const uint32_t validBitsPrev = validBits;
 
-#if 0
-    if(byteOffset != 0)
+    // mpeg conform header is attached to each frame
+    union mpeg_header
     {
-#ifdef DEBUG
-        printf("write syncwords: 0x%x 0x%x\n", syncWords[0], syncWords[1]);
-#endif
-        writeBits(pFRAME1, syncWords[0]>>28, 4);
-        writeBits(pFRAME1, syncWords[0]&((1<<28)-1), 28);
-#ifdef DEBUG
-        printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
-#endif
-        writeBits(pFRAME1, syncWords[1]>>26, 6);
-        writeBits(pFRAME1, syncWords[1]&((1<<26)-1), 26);
-        total_bit_leng += 2*32;
-#ifdef DEBUG
-        printf("pFRAME1[0] = 0x%x pFRAME1[1] = 0x%x\n", *((uint32_t*)&pFRAME1[0]), *((uint32_t*)&pFRAME1[4]));
-#endif
-    }
-#else
-        // mpeg conform header is attached to each frame
-        union mpeg_header
+        struct
         {
-            struct
-            {
 #if 0
-                uint16_t sync :12;
-                uint8_t mpeg_version :1;
-                uint8_t layer :2;
-                uint8_t protection :1;     
-                uint8_t bitrate :4;
-                uint8_t samplerate :2;
-                uint8_t padding :1;
-                uint8_t priv :1;
-                uint8_t channel_mode :2;
-                uint8_t mode_ext :2;
-                uint8_t copyright :1;
-                uint8_t original :1;
-                uint8_t emphasis :2;
+            uint16_t sync :12;
+            uint8_t mpeg_version :1;
+            uint8_t layer :2;
+            uint8_t protection :1;     
+            uint8_t bitrate :4;
+            uint8_t samplerate :2;
+            uint8_t padding :1;
+            uint8_t priv :1;
+            uint8_t channel_mode :2;
+            uint8_t mode_ext :2;
+            uint8_t copyright :1;
+            uint8_t original :1;
+            uint8_t emphasis :2;
 #else
-                uint8_t emphasis :2;
-                uint8_t original :1;
-                uint8_t copyright :1;
-                uint8_t mode_ext :2;
-                uint8_t channel_mode :2;
-                uint8_t priv :1;
-                uint8_t padding :1;
-                uint8_t samplerate :2;
-                uint8_t bitrate :4;
-                uint8_t protection :1;
-                uint8_t layer :2;
-                uint8_t mpeg_version :1;
-                uint16_t sync :12;
+            uint8_t emphasis :2;
+            uint8_t original :1;
+            uint8_t copyright :1;
+            uint8_t mode_ext :2;
+            uint8_t channel_mode :2;
+            uint8_t priv :1;
+            uint8_t padding :1;
+            uint8_t samplerate :2;
+            uint8_t bitrate :4;
+            uint8_t protection :1;
+            uint8_t layer :2;
+            uint8_t mpeg_version :1;
+            uint16_t sync :12;
 #endif
-            } mpeg_header_bitwise; // 32 bit
+        } mpeg_header_bitwise; // 32 bit
 
-            uint32_t mpeg_header_word;
-        };
-        
-        mpeg_header mph;
-        mph.mpeg_header_bitwise.sync = 0xFFF;       // sync
-        mph.mpeg_header_bitwise.mpeg_version = 1;   // 1:MPEG Audio
-        mph.mpeg_header_bitwise.layer = 3;          // 1:layer III, 2:layer II, 3:layer I
-        mph.mpeg_header_bitwise.protection = 1;     // no crc added
-        uint8_t idx;
-        switch(bitrate)
-        {
-            case 32 : idx = 1; break;
-            case 64 : idx = 2; break;
-            case 96 : idx = 3; break;
-            case 128 : idx = 4; break;
-            case 160 : idx = 5; break;
-            case 192 : idx = 6; break;
-            case 224 : idx = 7; break;
-            case 256 : idx = 8; break;
-            case 384 : idx = 12; break;
-            default : return -1;
-        }
+        uint32_t mpeg_header_word;
+    };
+    
+    mpeg_header mph;
+    mph.mpeg_header_bitwise.sync = 0xFFF;       // sync
+    mph.mpeg_header_bitwise.mpeg_version = 1;   // 1:MPEG Audio
+    mph.mpeg_header_bitwise.layer = 3;          // 1:layer III, 2:layer II, 3:layer I
+    mph.mpeg_header_bitwise.protection = 1;     // no crc added
+    uint8_t idx;
+    switch(bitrate)
+    {
+        case 32 : idx = 1; break;
+        case 64 : idx = 2; break;
+        case 96 : idx = 3; break;
+        case 128 : idx = 4; break;
+        case 160 : idx = 5; break;
+        case 192 : idx = 6; break;
+        case 224 : idx = 7; break;
+        case 256 : idx = 8; break;
+        case 384 : idx = 12; break;
+        default : return -1;
+    }
 
-        mph.mpeg_header_bitwise.bitrate = idx;      // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
-        mph.mpeg_header_bitwise.samplerate = 1;     // 0:44.1, 1:48, 2:32 kHz
-        mph.mpeg_header_bitwise.padding = 0;        // no padding
-        mph.mpeg_header_bitwise.priv = 0;           // not private
-        mph.mpeg_header_bitwise.channel_mode = 3;   // 0:stereo, 1:joint stereo, 2:dual channel, 3:mono 
-        mph.mpeg_header_bitwise.mode_ext = 0;       // no extension
-        mph.mpeg_header_bitwise.copyright = 0;      // no copy
-        mph.mpeg_header_bitwise.original = 0;       // original
-        mph.mpeg_header_bitwise.emphasis = 0;       // no emphasis
+    mph.mpeg_header_bitwise.bitrate = idx;      // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
+    mph.mpeg_header_bitwise.samplerate = 1;     // 0:44.1, 1:48, 2:32 kHz
+    mph.mpeg_header_bitwise.padding = 0;        // no padding
+    mph.mpeg_header_bitwise.priv = 0;           // not private
+    mph.mpeg_header_bitwise.channel_mode = 3;   // 0:stereo, 1:joint stereo, 2:dual channel, 3:mono 
+    mph.mpeg_header_bitwise.mode_ext = 0;       // no extension
+    mph.mpeg_header_bitwise.copyright = 0;      // no copy
+    mph.mpeg_header_bitwise.original = 0;       // original
+    mph.mpeg_header_bitwise.emphasis = 0;       // no emphasis
 
-        assert(sizeof(mph) == 4);
+    assert(sizeof(mph) == 4);
 
-        writeBits(pFRAME1, mph.mpeg_header_word, 32);
-#endif
-#endif
+    writeBits(pFRAME1, mph.mpeg_header_word, 32);
 
     // first 32 frame positions are the number of bits for each subband
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
     {
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
         writeBits(pFRAME1, BSPL[n_band] & 0xF, 4);
         total_bit_leng += 4;
         writeBits(pFRAME1, BSPL[n_band+1] & 0xF, 4);
         total_bit_leng += 4;
-#else
-        pFRAME1[cnt_FRAME_fill++] = BSPL[n_band];
-        total_bit_leng += 4;
-        pFRAME1[cnt_FRAME_fill++] = BSPL[n_band+1];
-        total_bit_leng += 4;
-#endif
     }
 
     // indices of scalefactor table
@@ -185,11 +156,7 @@ int quantization_and_tx_frame(uint32_t bitrate)
                 scf_ind--;
             }
 
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
             writeBits(pFRAME1, scf_ind & 0x3F, 6);
-#else
-            pFRAME1[cnt_FRAME_fill++] = scf_ind;
-#endif
             total_bit_leng += 6;
         }
     }
@@ -204,11 +171,7 @@ int quantization_and_tx_frame(uint32_t bitrate)
             if(N > 0)
             {   // quantize if bits are available TODO: is floor neccessary here?
                 number = (int16_t)floor( (S[n_band][sample]/(scf[n_band]*exp2LUT[BSPL[n_band]-2])) /*+ 0.5*/ );
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
                 writeBits(pFRAME1, (number & ((1<<N)-1)), N);
-#else
-                pFRAME1[cnt_FRAME_fill++] = number;
-#endif
 #ifdef DEBUG
                 
                 int32_t maxPow2Signed = 1<<(N-1);

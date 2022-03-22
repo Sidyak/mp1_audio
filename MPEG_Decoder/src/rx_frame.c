@@ -33,9 +33,7 @@ static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numbe
 static uint32_t bitNdx = 0;
 static const uint32_t bufSize = 16*1024*1024; // 16 MB max
 static uint32_t validBits = 0;  // valid bits for current frame
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 static uint32_t start_found = 0;
-#endif
 const uint32_t syncWords[2] = {0xCCCCAAAA, 0xAAAAF0F0};
 
 int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
@@ -43,40 +41,6 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
     short n_band, sample, N;
     tot_bits_rx = 0;
     cnt_FRAME_read = 0;
-
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-#if 0
-    int32_t sW[2];
-    
-    while(start_found == 0)
-    {
-        if(readBits(in_file, pFRAME1, 32, &sW[0]))
-        {
-            return -1;
-        }
-        if(readBits(in_file, pFRAME1, 32, &sW[1]))
-        {
-            return -1;
-        }
-        
-        if((sW[0] == syncWords[0]) && (sW[1] == syncWords[1]))
-        {
-#ifdef DEBUG
-            printf("Preamble for COMPRESSED found\n");
-#endif
-            start_found = 1; // start sequence for compressed data
-        }
-        else
-        {
-#ifdef DEBUG
-            fprintf(stderr, "ERROR: could not find syncwords\n");
-            printf("sW[0] = 0x%x (0x%x)\n", sW[0], syncWords[0]);
-            printf("sW[1] = 0x%x (0x%x)\n", sW[1], syncWords[1]);
-#endif
-            return -1;
-        }
-    }
-#else
 
     int syncFound = 0, timeout = 0;  
     mp1dec->mph.mpeg_header_bitwise.sync = 0;
@@ -156,49 +120,45 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
             return -1;
         }
     }
-#endif
-#endif
 
     // read bit allocations
     // read 32 * 4 bits for bit alloc of each subband
     for(n_band=0; n_band<BANDSIZE; n_band++)
     {
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-        int32_t bspl;
-        const uint32_t mask = (1<<4)-1;
-        if(readBits(in_file, pFRAME1, 4, &bspl))
+        for(int ch=0; ch < mp1dec->channel; ch++)
         {
-            return -1;
-        }
-        BSPL_rx[n_band] = (uint32_t)bspl & mask;
-#else    
-        BSPL_rx[n_band] = pFRAME1[cnt_FRAME_read++];
-#endif
+            int32_t bspl;
+            const uint32_t mask = (1<<4)-1;
+            if(readBits(in_file, pFRAME1, 4, &bspl))
+            {
+                return -1;
+            }
+            BSPL_rx[ch][n_band] = (uint32_t)bspl & mask;
 
-        tot_bits_rx += 4;
-        scf_rx[n_band] = 0;    // reset scf_rx
+            tot_bits_rx += 4;
+            scf_rx[ch][n_band] = 0;    // reset scf_rx
+        }
     }
 
     // read scale factors
     for(n_band=0; n_band<BANDSIZE; n_band++)
     {
-        N = BSPL_rx[n_band];
-        if(N > 0)
+        for(int ch=0; ch < mp1dec->channel; ch++)
         {
-            // read the index of the (6 bit) scale factor
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-            int32_t scfIndex;
-            const uint32_t mask = (1<<6)-1;
-            if(readBits(in_file, pFRAME1, 6, &scfIndex))
+            N = BSPL_rx[ch][n_band];
+            if(N > 0)
             {
-                return -1;
+                // read the index of the (6 bit) scale factor
+                int32_t scfIndex;
+                const uint32_t mask = (1<<6)-1;
+                if(readBits(in_file, pFRAME1, 6, &scfIndex))
+                {
+                    return -1;
+                }
+                
+                scf_rx[ch][n_band] = table_scf[scfIndex & mask];   // look into scf table
+                tot_bits_rx += 6;
             }
-            
-            scf_rx[n_band] = table_scf[scfIndex & mask];   // look into scf table
-#else
-            scf_rx[n_band] = table_scf[pFRAME1[cnt_FRAME_read++]];   // look into scf table
-#endif
-            tot_bits_rx += 6;
         }
     }
 
@@ -207,23 +167,22 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
     {
         for(n_band=0; n_band < BANDSIZE; n_band++)
         {
-            y_rx[sample][n_band] = 0; // init to 0
-            N = BSPL_rx[n_band];
-            if(N > 0)
+            for(int ch=0; ch < mp1dec->channel; ch++)
             {
-                tot_bits_rx += N;
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-                int32_t y;
-                //const uint32_t mask = (1<<N)-1; // apply mask on y results in flip of sign
-                if(readBits(in_file, pFRAME1, N, &y))
+                y_rx[ch][sample][n_band] = 0; // init to 0
+                N = BSPL_rx[ch][n_band];
+                if(N > 0)
                 {
-                    return -1;
-                }
+                    tot_bits_rx += N;
+                    int32_t y;
+                    //const uint32_t mask = (1<<N)-1; // apply mask on y results in flip of sign
+                    if(readBits(in_file, pFRAME1, N, &y))
+                    {
+                        return -1;
+                    }
 
-                y_rx[sample][n_band] = (y * scf_rx[n_band]/(1<<(N-1)));
-#else
-                y_rx[sample][n_band] = (pFRAME1[cnt_FRAME_read++] * scf_rx[n_band])/(1<<(N-1));
-#endif
+                    y_rx[ch][sample][n_band] = (y * scf_rx[ch][n_band]/(1<<(N-1)));
+                }
             }
         }
     }

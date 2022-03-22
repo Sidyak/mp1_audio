@@ -242,14 +242,9 @@ short band_cnt = 0;
 float scf_rx[BANDSIZE];
 short tot_bits = 0;
 short cnt_out=0,out_flag = 0;
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 uint8_t FRAME1[16*1024*1024];//sizeof(short)*2*BUFLEN] = {0};
 uint8_t *pFRAME1;
 uint8_t *pFRAME1_write;
-#else
-short FRAME1[2*BUFLEN] = {0};
-short *pFRAME1;
-#endif
 uint32_t cnt_FRAME_fill = 0;
 short index_nTon = 0;
 
@@ -429,9 +424,7 @@ int main(int argc, char *argv[])
     pOut1 = Out1;
     pOut2 = Out2;
     pFRAME1 = FRAME1;
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     pFRAME1_write = FRAME1;
-#endif
 
     // create twiddle factors for radix2 fft
     for( i_m = 0 ; i_m < NFFT/RADIX ; i_m++ ) 
@@ -450,25 +443,7 @@ int main(int argc, char *argv[])
         hanning[i_m]=(1/0.54)*(0.5+0.5*cos(2*PI*(i_m-255)/(NFFT-1)));    // Hann Fenster mi_mt kompensieren der Grunddämpfung (sqrt(8/2)) ooder (sqrt(8/3)) ??? check it!!!
     }
 
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    memset(pFRAME1, 0xFFFF, 2*BUFLEN);
-#else
-    for(i_m=0; i_m < (2*BUFLEN); i_m++)
-    {
-        pFRAME1[i_m] = 0xFFFF;    // init value Xmt value
-    }
-#endif
-
-    /* Frame synchronisation sequence (can be used for one time header in future) */
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
-    //memcpy(pFRAME1, syncWords, 2*sizeof(uint32_t));
-
-#else
-    pFRAME1[0]=0xAAAA;
-    pFRAME1[1]=0xCCCC;
-    pFRAME1[2]=0xF0F0;
-    pFRAME1[3]=0xAAAA;
-#endif
+    memset(pFRAME1, 0xFFFF, 2*BUFLEN); // TODO: is this necessary?
 
     uint32_t *table_Xmt;
     int32_t samples_offset = 0;
@@ -478,11 +453,7 @@ int main(int argc, char *argv[])
     while(1)
     {        
         nFrame++;
-#ifndef FIX_FOR_REAL_BITRATE_REDUCTION
-        uint32_t outbuf[BUFLEN+sizeof(syncWords)];
 
-        table_Xmt = outbuf;
-#endif
         count_fb = 0;        // reset FFT counter
         count_12 = 0;        // reset FB Counter
         count_poly = 0;      // reset polyphase analysis filterbank counter
@@ -552,7 +523,6 @@ int main(int argc, char *argv[])
 #endif
         /* QUANTIZE SUBBAND SAMPLES*/
         valid_bits = quantization_and_tx_frame(bitrate);    /* quantize 32*12 subband samples */
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
 
         uint32_t residual_bits = valid_bits % 8; 
 
@@ -572,15 +542,7 @@ int main(int argc, char *argv[])
         {
             printf("WARNING: you might want to check for buffer overflow\n");
         }
-#else
-        // write data 
-        for(i_m=0; i_m < BUFLEN; i_m++)
-        {
-            table_Xmt[i_m] = (unsigned int)( (((unsigned int)pFRAME1[(i_m*2+1)]&0x0000FFFF)<<16) | (unsigned int)pFRAME1[(i_m*2)]&0x0000FFFF );
-        }
 
-        fwrite(outbuf, 1, BUFLEN*sizeof(uint32_t), out);
-#endif
         samples_offset += BUFLEN*channels;
 
         printf("\r[%d|%d]", nFrame, samples_offset);
@@ -592,14 +554,13 @@ int main(int argc, char *argv[])
         }
     }    // end while(1)
 
-#ifdef FIX_FOR_REAL_BITRATE_REDUCTION
     if(valid_bits/8 > (16*1024*1024))
     {
         printf("WARNING: Buffer too small for required bitstream\n");
     }
 
     fwrite(pFRAME1_write, 1, valid_bits/8, out);
-#endif
+
     printf("\n");
 
     free(input_buf);
