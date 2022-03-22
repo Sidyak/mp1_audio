@@ -26,6 +26,8 @@
 #include <assert.h>
 #endif
 
+#define MAX_ANC_BIT_SIZE    (32*32) // max number of bits for ancillary data
+
 static int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits, int32_t *retBits);
 
 static uint32_t bitNdx = 0;
@@ -109,21 +111,32 @@ int32_t rx_frame(FILE *in_file)
                 uint8_t mpeg_version :1;
                 uint16_t sync :12;
 #endif
-            } mpeg_header_bitwise; // 32 bit
+            } __attribute__((__packed__)) mpeg_header_bitwise; // 32 bit
 
             uint32_t mpeg_header_word;
         };
 
     mpeg_header mph;
-    
-    //while(start_found == 0)
+
+    int syncFound = 0, timeout = 0;  
+    mph.mpeg_header_bitwise.sync = 0;
+    while(syncFound == 0)
     {
-        if(readBits(in_file, pFRAME1, 32, (int32_t*)&mph.mpeg_header_word))
+        int32_t tmp;
+        if(readBits(in_file, pFRAME1, 1, &tmp))
         {
             return -1;
         }
+        
+        mph.mpeg_header_bitwise.sync = (mph.mpeg_header_bitwise.sync>>1) | ((tmp & 0x1) << 11);
         if(mph.mpeg_header_bitwise.sync == 0xFFF)
         {
+            timeout = 0;
+            if(readBits(in_file, pFRAME1, 32-12, &tmp))
+            {
+                return -1;
+            }
+            mph.mpeg_header_word |= tmp;
 #ifdef DEBUG
             printf("Preamble/sync found\n");
             printf("mph.mpeg_header_bitwise.sync = 0x%x\n", mph.mpeg_header_bitwise.sync);
@@ -140,36 +153,28 @@ int32_t rx_frame(FILE *in_file)
             printf("mph.mpeg_header_bitwise.original = 0x%x\n", mph.mpeg_header_bitwise.original);
             printf("mph.mpeg_header_bitwise.emphasis = 0x%x\n", mph.mpeg_header_bitwise.emphasis);
 #endif
-            start_found = 1;
+            syncFound = 1;
         }
         else
         {
-#ifdef DEBUG
-            fprintf(stderr, "ERROR: could not find syncwords\n");
-            printf("mph.mpeg_header_bitwise.sync = 0x%x\n", mph.mpeg_header_bitwise.sync);
-            printf("mph.mpeg_header_bitwise.mpeg_version = 0x%x\n", mph.mpeg_header_bitwise.mpeg_version);
-            printf("mph.mpeg_header_bitwise.layer = 0x%x\n", mph.mpeg_header_bitwise.layer);
-            printf("mph.mpeg_header_bitwise.protection = 0x%x\n", mph.mpeg_header_bitwise.protection);
-            printf("mph.mpeg_header_bitwise.bitrate = 0x%x\n", mph.mpeg_header_bitwise.bitrate);
-            printf("mph.mpeg_header_bitwise.samplerate = 0x%x\n", mph.mpeg_header_bitwise.samplerate);
-            printf("mph.mpeg_header_bitwise.padding = 0x%x\n", mph.mpeg_header_bitwise.padding);
-            printf("mph.mpeg_header_bitwise.priv = 0x%x\n", mph.mpeg_header_bitwise.priv);
-            printf("mph.mpeg_header_bitwise.channel_mode = 0x%x\n", mph.mpeg_header_bitwise.channel_mode);
-            printf("mph.mpeg_header_bitwise.mode_ext = 0x%x\n", mph.mpeg_header_bitwise.mode_ext);
-            printf("mph.mpeg_header_bitwise.copyright = 0x%x\n", mph.mpeg_header_bitwise.copyright);
-            printf("mph.mpeg_header_bitwise.original = 0x%x\n", mph.mpeg_header_bitwise.original);
-            printf("mph.mpeg_header_bitwise.emphasis = 0x%x\n", mph.mpeg_header_bitwise.emphasis);
-#endif
-            return -1;
-        }
-        if(mph.mpeg_header_bitwise.protection = 0)
-        {
-            // read crc
-            int32_t crc;
-            if(readBits(in_file, pFRAME1, 16, &crc))
+            if(++timeout >= MAX_ANC_BIT_SIZE)
             {
+                fprintf(stderr, "ERROR: could not find syncwords\n");
                 return -1;
             }
+        }
+    }
+
+    if(mph.mpeg_header_bitwise.protection = 0)
+    {
+        // read crc
+        int32_t crc;
+        if(readBits(in_file, pFRAME1, 16, &crc))
+        {
+#ifdef DEBUG
+            printf("Need to check crc\n");
+#endif            
+            return -1;
         }
     }
 #endif
@@ -244,7 +249,7 @@ int32_t rx_frame(FILE *in_file)
             }
         }
     }
-
+    
     return (tot_bits_rx);
 }
 
@@ -276,11 +281,17 @@ int32_t readBits(FILE* in_file, uint8_t* pBitstream, const uint32_t numberOfBits
         }
     }
 
+#if 1
     *retBits = (pBitstream[byteOffset & byteMask] << 24) |
                        (pBitstream[(byteOffset + 1) & byteMask] << 16) |
                        (pBitstream[(byteOffset + 2) & byteMask] << 8) |
                         pBitstream[(byteOffset + 3) & byteMask];
-
+#else
+    *retBits = (pBitstream[byteOffset & byteMask] << 0) |
+                       (pBitstream[(byteOffset + 1) & byteMask] << 8) |
+                       (pBitstream[(byteOffset + 2) & byteMask] << 16) |
+                       (pBitstream[(byteOffset + 3) & byteMask] << 24) ;
+#endif
     if (bitOffset)
     {
         *retBits <<= bitOffset;
