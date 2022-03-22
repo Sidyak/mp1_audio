@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
     // clear frame buffer
     memset(pFRAME1, 0, sizeof(FRAME1));
 
-    init_table();     // init Tables
+    init_table(); // init Tables
 
     uint32_t nFrame = 0; // frame counter
 
@@ -180,23 +180,20 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Unable to open wav file for writing %s\n", outfile);
                 return 1;
             }
-
         }
 
+        for(i_m=0; i_m<BUFLEN; i_m+=mp1dec->channel)
         {
-            for(i_m=0; i_m<BUFLEN; i_m+=mp1dec->channel)
+            // TODO: fix for stereo - need to add channel for BSPL, scalefactor and samples
+            int16_t oL = (int16_t)buffer[i_m];
+            wav_write_data(wavOut, (unsigned char*)&oL, 2);
+            if(mp1dec->channel == 2)
             {
-                // TODO: fix for stereo - need to add channel for BSPL, scalefactor and samples
-                int16_t oL = (int16_t)buffer[i_m];
-                wav_write_data(wavOut, (unsigned char*)&oL, 2);
-                if(mp1dec->channel == 2)
-                {
-                    int16_t oR = (int16_t)buffer[i_m+1];
-                    wav_write_data(wavOut, (unsigned char*)&oR, 2);
-                }
+                int16_t oR = (int16_t)buffer[i_m+1];
+                wav_write_data(wavOut, (unsigned char*)&oR, 2);
             }
-            sample_cnt += BUFLEN;
         }
+        sample_cnt += BUFLEN;
 
         nFrame++;
         
@@ -213,10 +210,6 @@ int main(int argc, char *argv[])
 // variables initialization
 void init_table(void)
 {
-    short ind=0;
-    for(ind=0; ind < BUFLEN; ind++)
-    {
-        table_Rcv[ind] = 0;
-        buffer[ind] = 0;
-    }
+    memset(table_Rcv, 0, sizeof(table_Rcv));
+    memset(buffer, 0, sizeof(buffer));
 }

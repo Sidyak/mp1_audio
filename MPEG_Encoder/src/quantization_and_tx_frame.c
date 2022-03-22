@@ -23,6 +23,7 @@
 #include <math.h>
 #include "init.h"
 
+//#define DEBUG
 #ifdef DEBUG
 #include <stdio.h>
 #endif
@@ -32,7 +33,6 @@
 
 static void putBits(uint8_t* pBitBuf, uint32_t value, const uint32_t numberOfBits);
 static uint8_t writeBits(uint8_t *pBitBuf, uint32_t value, const uint32_t numberOfBits);
-
 
 const uint32_t bitMask[32 + 1] = 
 {
@@ -55,11 +55,7 @@ int quantization_and_tx_frame(uint32_t bitrate)
 {
     uint8_t n_band, scf_ind, sample, N;
     int16_t number;
-
     uint32_t total_bit_leng = 0;    // total bits planed to use in current frame
-    cnt_FRAME_fill = 4;    // first data starts right behind the preamble (frame sync sequence of 4*16 bit)
-
-    const uint32_t validBitsPrev = validBits;
 
     // mpeg conform header is attached to each frame
     union mpeg_header
@@ -105,19 +101,19 @@ int quantization_and_tx_frame(uint32_t bitrate)
     mph.mpeg_header_bitwise.mpeg_version = 1;   // 1:MPEG Audio
     mph.mpeg_header_bitwise.layer = 3;          // 1:layer III, 2:layer II, 3:layer I
     mph.mpeg_header_bitwise.protection = 1;     // no crc added
-    uint8_t idx;
+    uint8_t idx = 0;
     switch(bitrate)
     {
-        case 32 : idx = 1; break;
-        case 64 : idx = 2; break;
-        case 96 : idx = 3; break;
+        case  32 : idx = 1; break;
+        case  64 : idx = 2; break;
+        case  96 : idx = 3; break;
         case 128 : idx = 4; break;
         case 160 : idx = 5; break;
         case 192 : idx = 6; break;
         case 224 : idx = 7; break;
         case 256 : idx = 8; break;
         case 384 : idx = 12; break;
-        default : return -1;
+        default : break;
     }
 
     mph.mpeg_header_bitwise.bitrate = idx;      // 1:32, 2:64, 3:96, 4:128, 5:160, 6:192, 7:224, 8:256, ..., 12:384 kbps
@@ -127,12 +123,38 @@ int quantization_and_tx_frame(uint32_t bitrate)
     mph.mpeg_header_bitwise.channel_mode = 3;   // 0:stereo, 1:joint stereo, 2:dual channel, 3:mono 
     mph.mpeg_header_bitwise.mode_ext = 0;       // no extension
     mph.mpeg_header_bitwise.copyright = 0;      // no copy
-    mph.mpeg_header_bitwise.original = 0;       // original
+    mph.mpeg_header_bitwise.original = 1;       // original
     mph.mpeg_header_bitwise.emphasis = 0;       // no emphasis
 
+#ifdef DEBUG
     assert(sizeof(mph) == 4);
+#endif
+
+#ifdef DEBUG
+    printf("mph.mpeg_header_bitwise.sync = 0x%x\n", mph.mpeg_header_bitwise.sync);
+    printf("mph.mpeg_header_bitwise.mpeg_version = 0x%x\n", mph.mpeg_header_bitwise.mpeg_version);
+    printf("mph.mpeg_header_bitwise.layer = 0x%x\n", mph.mpeg_header_bitwise.layer);
+    printf("mph.mpeg_header_bitwise.protection = 0x%x\n", mph.mpeg_header_bitwise.protection);
+    printf("mph.mpeg_header_bitwise.bitrate = 0x%x\n", mph.mpeg_header_bitwise.bitrate);
+    printf("mph.mpeg_header_bitwise.samplerate = 0x%x\n", mph.mpeg_header_bitwise.samplerate);
+    printf("mph.mpeg_header_bitwise.padding = 0x%x\n", mph.mpeg_header_bitwise.padding);
+    printf("mph.mpeg_header_bitwise.priv = 0x%x\n", mph.mpeg_header_bitwise.priv);
+    printf("mph.mpeg_header_bitwise.channel_mode = 0x%x\n", mph.mpeg_header_bitwise.channel_mode);
+    printf("mph.mpeg_header_bitwise.mode_ext = 0x%x\n", mph.mpeg_header_bitwise.mode_ext);
+    printf("mph.mpeg_header_bitwise.copyright = 0x%x\n", mph.mpeg_header_bitwise.copyright);
+    printf("mph.mpeg_header_bitwise.original = 0x%x\n", mph.mpeg_header_bitwise.original);
+    printf("mph.mpeg_header_bitwise.emphasis = 0x%x\n", mph.mpeg_header_bitwise.emphasis);
+#endif
 
     writeBits(pFRAME1, mph.mpeg_header_word, 32);
+
+    if(mph.mpeg_header_bitwise.protection == 0)
+    {
+        // TODO: add crc
+#ifdef DEBUG
+        assert(0);
+#endif  
+    }
 
     // first 32 frame positions are the number of bits for each subband
     for(n_band=0; n_band < BANDSIZE; n_band+=2)
@@ -186,6 +208,8 @@ int quantization_and_tx_frame(uint32_t bitrate)
         }
     }
     
+    // TODO: add ancillary data if desired
+
     return validBits;
 }
 

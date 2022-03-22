@@ -104,7 +104,6 @@ extern short tot_bits;
 extern short cnt_out,out_flag;
 extern uint8_t FRAME1[16*1024*1024];//2*BUFLEN*sizeof(short)];
 extern uint8_t *pFRAME1;
-extern short cnt_FRAME_fill;
 extern short index_nTon;
 
 /***** lookup table for mid-thread quantization *****/

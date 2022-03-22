@@ -242,10 +242,9 @@ short band_cnt = 0;
 float scf_rx[BANDSIZE];
 short tot_bits = 0;
 short cnt_out=0,out_flag = 0;
-uint8_t FRAME1[16*1024*1024];//sizeof(short)*2*BUFLEN] = {0};
+uint8_t FRAME1[16*1024*1024];
 uint8_t *pFRAME1;
 uint8_t *pFRAME1_write;
-uint32_t cnt_FRAME_fill = 0;
 short index_nTon = 0;
 
 // lookup table for mid-thread quantization 
@@ -451,7 +450,7 @@ int main(int argc, char *argv[])
     uint32_t valid_bits;
     
     while(1)
-    {        
+    {
         nFrame++;
 
         count_fb = 0;        // reset FFT counter
@@ -487,43 +486,37 @@ int main(int argc, char *argv[])
         bit_alloc(bitrate, sample_rate, bits_per_sample);        /* dynamic bit allocation */
 
 #ifdef PLOT_DATA// for plot
-    printf("\n\ncompr_rate = %d, sample_rate = %d bits_per_sample = %d \n", compr_rate, sample_rate, bits_per_sample);    
-    printf("\n\nfft \n");
-    for(int ii=0; ii<256; ii++)
-    {
-        printf("%f " , magnitude_dB[ii] );
-    }
-
-    printf("\n\nLs \n");
-    for(int ii=0; ii<32; ii++)
-    {
-        printf("%f " , Ls[ii] );
-    }
-
-    printf("\n\nSMR \n");
-    for(int ii=0; ii<32; ii++)
-    {
-        printf("%f " , SMR[ii] );
-    }
-
-    printf("\n\nBSPL \n");
-    for(int ii=0; ii<32; ii++)
-    {
-        printf("%d " , BSPL[ii] );
-    }
-#endif
-
-#if 0 // not used anymore
-        // offset for syncWords is neccesary for the first frame
-        uint32_t writeOffset = 0;
-        if(nFrame == 1)
+        printf("\n\ncompr_rate = %d, sample_rate = %d bits_per_sample = %d \n", compr_rate, sample_rate, bits_per_sample);    
+        printf("\n\nfft \n");
+        for(int ii=0; ii<256; ii++)
         {
-            writeOffset = sizeof(syncWords);
+            printf("%f " , magnitude_dB[ii] );
+        }
+
+        printf("\n\nLs \n");
+        for(int ii=0; ii<32; ii++)
+        {
+            printf("%f " , Ls[ii] );
+        }
+
+        printf("\n\nSMR \n");
+        for(int ii=0; ii<32; ii++)
+        {
+            printf("%f " , SMR[ii] );
+        }
+
+        printf("\n\nBSPL \n");
+        for(int ii=0; ii<32; ii++)
+        {
+            printf("%d " , BSPL[ii] );
         }
 #endif
+
         /* QUANTIZE SUBBAND SAMPLES*/
         valid_bits = quantization_and_tx_frame(bitrate);    /* quantize 32*12 subband samples */
 
+#ifdef DEBUG
+        // residual_bits != 0 is not expected to happen
         uint32_t residual_bits = valid_bits % 8; 
 
         if(residual_bits)
@@ -532,6 +525,7 @@ int main(int argc, char *argv[])
             printf("WARNING: number of bits to write (%d) not integer of a byte\n", valid_bits);
             valid_bits += (8-residual_bits); // zero padding
         }
+#endif
 
         // write data
 #ifdef DEBUG
@@ -569,5 +563,4 @@ int main(int argc, char *argv[])
     wav_read_close(wavIn);
 
     return 0;
-
 }

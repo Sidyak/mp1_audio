@@ -24,7 +24,7 @@
 
 #include <stdint.h>
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -74,44 +74,44 @@ extern short No_steps[15];
 extern float SNR[15];
 extern float quantization_table[14][3];
 
-        // mpeg conform header is attached to each frame
-        union mpeg_header
-        {
-            struct
-            {
+// mpeg conform header is attached to each frame
+union mpeg_header
+{
+    struct
+    {
 #if 0
-                uint16_t sync :12;
-                uint8_t mpeg_version :1;
-                uint8_t layer :2;
-                uint8_t protection :1;     
-                uint8_t bitrate :4;
-                uint8_t samplerate :2;
-                uint8_t padding :1;
-                uint8_t priv :1;
-                uint8_t channel_mode :2;
-                uint8_t mode_ext :2;
-                uint8_t copyright :1;
-                uint8_t original :1;
-                uint8_t emphasis :2;
+        uint16_t sync :12;
+        uint8_t mpeg_version :1;
+        uint8_t layer :2;
+        uint8_t protection :1;     
+        uint8_t bitrate :4;
+        uint8_t samplerate :2;
+        uint8_t padding :1;
+        uint8_t priv :1;
+        uint8_t channel_mode :2;
+        uint8_t mode_ext :2;
+        uint8_t copyright :1;
+        uint8_t original :1;
+        uint8_t emphasis :2;
 #else
-                uint8_t emphasis :2;
-                uint8_t original :1;
-                uint8_t copyright :1;
-                uint8_t mode_ext :2;
-                uint8_t channel_mode :2;
-                uint8_t priv :1;
-                uint8_t padding :1;
-                uint8_t samplerate :2;
-                uint8_t bitrate :4;
-                uint8_t protection :1;
-                uint8_t layer :2;
-                uint8_t mpeg_version :1;
-                uint16_t sync :12;
+        uint8_t emphasis :2;
+        uint8_t original :1;
+        uint8_t copyright :1;
+        uint8_t mode_ext :2;
+        uint8_t channel_mode :2;
+        uint8_t priv :1;
+        uint8_t padding :1;
+        uint8_t samplerate :2;
+        uint8_t bitrate :4;
+        uint8_t protection :1;
+        uint8_t layer :2;
+        uint8_t mpeg_version :1;
+        uint16_t sync :12;
 #endif
-            } __attribute__((__packed__)) mpeg_header_bitwise; // 32 bit
+    } __attribute__((__packed__)) mpeg_header_bitwise; // 32 bit
 
-            uint32_t mpeg_header_word;
-        };
+    uint32_t mpeg_header_word;
+};
 
 typedef mpeg_header MPEG_Header;
 
