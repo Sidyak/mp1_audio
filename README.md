@@ -14,7 +14,8 @@ use simple Makefile
 ./MPEG_Decoder/bin/decoder <out.mp1> <out.wav>
 
 # known issues
--currently for mono audio only
--files size of out.mp1 is not compressed yet since data written into frame is using short instead of bit wise writing
--memory consumption needs to be optimized
--clean up (coding style)
+mono audio only
+48 kHz only
+mpeg 1 header: encode and decode works fine but other mpeg conform decoder (ffmpeg) does not recognize my bitstreams. also decoder can not decode other mp1 conform bitstreams.
+memory consumption needs to be optimized
+clean up (coding style)
