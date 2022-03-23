@@ -42,7 +42,7 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
 
     int syncFound = 0, timeout = 0;  
     mp1dec->mph.mpeg_header_bitwise.sync = 0;
-    while(syncFound == 0)
+    do
     {
         int32_t tmp;
         if(readBits(in_file, pFRAME1, 1, &tmp))
@@ -75,26 +75,6 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
             printf("mp1dec->mph.mpeg_header_bitwise.original = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.original);
             printf("mp1dec->mph.mpeg_header_bitwise.emphasis = 0x%x\n", mp1dec->mph.mpeg_header_bitwise.emphasis);
 #endif
-            switch(mp1dec->mph.mpeg_header_bitwise.channel_mode)
-            {
-                case 0 : mp1dec->channel = 2; break;
-                case 1 : mp1dec->channel = 2; break;
-                case 2 : mp1dec->channel = 2; break;
-                case 3 : mp1dec->channel = 1; break;
-                default : fprintf(stderr, "ERROR: could not find syncwords\n");
-                          return -1;
-            }
-            
-            switch(mp1dec->mph.mpeg_header_bitwise.samplerate)
-            {
-                case 0 : mp1dec->sample_rate = 44100; break;
-                case 1 : mp1dec->sample_rate = 48000; break;
-                case 2 : mp1dec->sample_rate = 32000; break;
-                case 3 : // no break - falltrough
-                default : fprintf(stderr, "ERROR: could not find syncwords\n");
-                          return -1;
-            }
-
             syncFound = 1;
         }
         else
@@ -105,17 +85,45 @@ int32_t rx_frame(FILE *in_file, Mp1Decoder *mp1dec)
                 return -1;
             }
         }
+    } while(syncFound == 0);
+
+    switch(mp1dec->mph.mpeg_header_bitwise.channel_mode)
+    {
+        case 0 : mp1dec->channel = 2; break;
+        case 1 : mp1dec->channel = 2; break;
+        case 2 : mp1dec->channel = 2; break;
+        case 3 : mp1dec->channel = 1; break;
+        default : fprintf(stderr, "ERROR: channel mode undefined\n");
+                    return -1;
+    }
+    
+    switch(mp1dec->mph.mpeg_header_bitwise.samplerate)
+    {
+        case 0 : mp1dec->sample_rate = 44100; break;
+        case 1 : mp1dec->sample_rate = 48000; break;
+        case 2 : mp1dec->sample_rate = 32000; break;
+        case 3 : // no break - falltrough
+        default : fprintf(stderr, "ERROR: sample rate undefined\n");
+                    return -1;
+    }
+    
+    if(mp1dec->mph.mpeg_header_bitwise.mode_ext)
+    {
+#ifdef DEBUG
+        fprintf(stderr, "ERROR: mode extension for joint stereo not supported yet\n");
+        return -1;
+#endif  
     }
 
-    if(mp1dec->mph.mpeg_header_bitwise.protection = 0)
+    if(0 == mp1dec->mph.mpeg_header_bitwise.protection)
     {
-        // read crc
+#ifdef DEBUG
+        printf("crc attached\n");
+#endif    
+        // TODO: check crc
         int32_t crc;
         if(readBits(in_file, pFRAME1, 16, &crc))
-        {
-#ifdef DEBUG
-            printf("Need to check crc\n");
-#endif            
+        {        
             return -1;
         }
     }
