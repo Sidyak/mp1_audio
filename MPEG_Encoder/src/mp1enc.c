@@ -239,7 +239,6 @@ short BSCF_done = 0;
 short band_cnt = 0;
 float scf_rx[BANDSIZE];
 short tot_bits = 0;
-short cnt_out=0,out_flag = 0;
 uint8_t FRAME1[16*1024*1024];
 uint8_t *pFRAME1;
 uint8_t *pFRAME1_write;

@@ -36,7 +36,7 @@
 
 extern unsigned int table_Rcv[BUFLEN];    // Rcv buffer
 extern short cnt_samp;
-extern short count_fb, count, count_12, cnt_out, count_12_synthese;    // counter for filterbank and polayphase rotating switch
+extern short count_fb, count, count_12, cnt_out[MAX_CHANNEL], count_12_synthese;    // counter for filterbank and polayphase rotating switch
 
 /***** some control variables *****/
 extern int i_m,k_m;
@@ -47,8 +47,7 @@ extern float teta;
 extern float INT_y[MAX_CHANNEL],INT_y1[MAX_CHANNEL],INT_y2[MAX_CHANNEL];    // current polyphase outputs
 extern float out_delay[MAX_CHANNEL][64];        // polyphase component outputs
 extern float /*int32_t*/ y_rx[MAX_CHANNEL][12][BANDSIZE];    // demultiplexed subbands
-extern float Out1[MAX_CHANNEL*768];            // 64 polyphases * 12 samples=768
-extern float *pOut1;                // pointer reference
+extern float pOut1[MAX_CHANNEL][768];            // 64 polyphases * 12 samples=768
 
 /***** Psychoacoustic Model variables *****/
 extern uint8_t FRAME1[16*1024*1024];
@@ -58,7 +57,7 @@ extern float scf_rx[MAX_CHANNEL][BANDSIZE];        // received bit values for sc
 extern short tot_bits_rx;            // number of received bits
 extern short cnt_FRAME_read;        // array index for received data
 extern short start_decoding;        // start decoding flag
-extern short buffer[MAX_CHANNEL*BUFLEN];    // buffer
+extern short buffer[MAX_CHANNEL][BUFLEN];    // buffer
 
 /* from mpeg_tables.h */
 extern float table_scf[63];

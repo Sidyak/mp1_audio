@@ -101,7 +101,7 @@ extern short BSCF_done;
 extern short band_cnt;
 extern float scf_rx[BANDSIZE];
 extern short tot_bits;
-extern short cnt_out,out_flag;
+extern short out_flag;
 extern uint8_t FRAME1[16*1024*1024];//2*BUFLEN*sizeof(short)];
 extern uint8_t *pFRAME1;
 extern short index_nTon;

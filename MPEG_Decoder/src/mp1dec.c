@@ -60,7 +60,7 @@ extern "C" {
 
 unsigned int table_Rcv[BUFLEN];    // Rcv buffer
 short cnt_samp=0;
-short count_fb=0, count=0, count_12=0, cnt_out=0, count_12_synthese=0;    // counter for filterbank and polayphase rotating switch
+short count_fb=0, count=0, count_12=0, cnt_out[MAX_CHANNEL], count_12_synthese=0;    // counter for filterbank and polayphase rotating switch
 
 // some control variables 
 int i_m = 0,k_m = 0;
@@ -71,8 +71,7 @@ float teta=0;
 float INT_y[MAX_CHANNEL],INT_y1[MAX_CHANNEL],INT_y2[MAX_CHANNEL];    // current polyphase outputs
 float out_delay[MAX_CHANNEL][64];          // polyphase component outputs
 float /*int32_t*/ y_rx[MAX_CHANNEL][12][BANDSIZE];     // demultiplexed subbands
-float Out1[MAX_CHANNEL*768];              // 64 polyphases * 12 samples=768
-float *pOut1;                 // pointer reference
+float pOut1[MAX_CHANNEL][768];              // 64 polyphases * 12 samples=768
 
 // Psychoacoustic Model variables 
 uint8_t FRAME1[16*1024*1024] = {0}; // Rcv Frame
@@ -81,12 +80,12 @@ uint8_t BSPL_rx[MAX_CHANNEL][BANDSIZE];        // received bit values for subban
 float scf_rx[MAX_CHANNEL][BANDSIZE];         // received bit values for scalefactors
 short tot_bits_rx;              // number of received bits
 short cnt_FRAME_read = 0;       // array index for received data
-short buffer[MAX_CHANNEL*BUFLEN] = {0};     // buffer
+short buffer[MAX_CHANNEL][BUFLEN] = {0};     // buffer
 
 void init_table(void);
 float fir_filter(float delays[], float coe[], short N_delays, float x_n);
 void calc_cos_mod_synthese(Mp1Decoder *mp1dec);
-void calc_polyphase_synthese_fb(int channels);
+void calc_polyphase_synthese_fb(int ch);
 int32_t rx_frame(FILE *in, Mp1Decoder *mp1dec);
 
 void usage(const char* name)
@@ -137,7 +136,6 @@ int main(int argc, char *argv[])
     }
    
     // pointer references
-    pOut1 = Out1; // used for synthesis fb
     pFRAME1 = FRAME1;
 
     // clear frame buffer
@@ -162,7 +160,10 @@ int main(int argc, char *argv[])
         /* Synthesis FILTERBANK */
         calc_cos_mod_synthese(mp1dec);        // cosinus modulation
         count_12_synthese=0;
-        calc_polyphase_synthese_fb(mp1dec->channel);    // polyphase filterbank   
+        for(int ch = 0; ch < mp1dec->channel; ch++)
+        {
+            calc_polyphase_synthese_fb(ch);    // polyphase filterbank   
+        }
 
         if(nFrame == 1)
         {
@@ -177,14 +178,14 @@ int main(int argc, char *argv[])
             }
         }
 
-        for(i_m=0; i_m<BUFLEN; i_m+=mp1dec->channel)
+        for(i_m=0; i_m<BUFLEN; i_m++)
         {
             // TODO: fix for stereo - need to add channel for BSPL, scalefactor and samples
-            int16_t oL = (int16_t)buffer[i_m];
+            int16_t oL = (int16_t)buffer[0][i_m];
             wav_write_data(wavOut, (unsigned char*)&oL, 2);
             if(mp1dec->channel == 2)
             {
-                int16_t oR = (int16_t)buffer[i_m+1];
+                int16_t oR = (int16_t)buffer[1][i_m];
                 wav_write_data(wavOut, (unsigned char*)&oR, 2);
             }
         }
